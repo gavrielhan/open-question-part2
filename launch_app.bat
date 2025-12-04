@@ -29,7 +29,37 @@ python --version >nul 2>&1
 if errorlevel 1 (
     echo.
     echo ERROR: Python is not installed or not in PATH!
-    echo Please install Python 3.7 or higher.
+    echo.
+    echo Please install Python 3.9 or higher from:
+    echo https://www.python.org/downloads/
+    echo.
+    echo IMPORTANT: During installation, check "Add Python to PATH"
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if virtual environment exists
+if not exist "venv\Scripts\activate.bat" (
+    echo.
+    echo WARNING: Virtual environment not found!
+    echo.
+    echo Please run setup_windows.bat first to set up the application.
+    echo Or create it manually: python -m venv venv
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if dependencies are installed (quick check)
+python -c "import flask" >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo WARNING: Dependencies may not be installed!
+    echo.
+    echo Please run setup_windows.bat first, or install manually:
+    echo   venv\Scripts\activate
+    echo   pip install -r requirements.txt
     echo.
     pause
     exit /b 1

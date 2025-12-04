@@ -17,6 +17,16 @@
 
 ## התקנה
 
+### Windows Users
+**📘 For detailed Windows setup instructions, see [WINDOWS_SETUP_GUIDE.md](WINDOWS_SETUP_GUIDE.md)**
+
+Quick start on Windows:
+1. Install Python 3.9+ (make sure to check "Add Python to PATH")
+2. Download/clone this repository
+3. Double-click `launch_app.bat` (or follow the detailed guide)
+
+### Linux/macOS Users
+
 1. **יצירת סביבה וירטואלית:**
 ```bash
 python3 -m venv venv
