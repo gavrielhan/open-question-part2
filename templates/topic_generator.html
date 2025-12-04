@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MECE Topic Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0f766e;
+            --primary-light: #14b8a6;
+            --primary-dark: #0d5f58;
+            --secondary: #f97316;
+            --secondary-light: #fb923c;
+            --bg-gradient-start: #0f172a;
+            --bg-gradient-mid: #1e293b;
+            --bg-gradient-end: #0f766e;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        /* Animated background pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(20, 184, 166, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(15, 118, 110, 0.1) 0%, transparent 30%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 45px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 60px;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+        }
+
+        h1 {
+            color: var(--text-dark);
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-light);
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .step {
+            margin-bottom: 25px;
+            padding: 25px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            opacity: 0.5;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #f8fafc;
+        }
+
+        .step.active {
+            opacity: 1;
+            pointer-events: all;
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.05) 0%, rgba(20, 184, 166, 0.05) 100%);
+            box-shadow: 0 4px 20px rgba(15, 118, 110, 0.15);
+        }
+
+        .step.completed {
+            opacity: 1;
+            border-color: var(--success);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.02) 100%);
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
+        }
+
+        .step.completed .step-number {
+            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Upload area */
+        .upload-area {
+            border: 3px dashed var(--primary);
+            border-radius: 16px;
+            padding: 50px 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.03) 0%, rgba(20, 184, 166, 0.03) 100%);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-light);
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--secondary);
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.1) 0%, rgba(251, 146, 60, 0.1) 100%);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 56px;
+            margin-bottom: 18px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: var(--text-dark);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 18px;
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            display: none;
+        }
+
+        .file-info.visible {
+            display: block;
+        }
+
+        .file-info-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .clear-upload-btn {
+            background: transparent;
+            border: none;
+            color: var(--error);
+            font-size: 22px;
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+
+        .clear-upload-btn:hover {
+            transform: scale(1.15);
+        }
+
+        /* Form controls */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        select, input[type="text"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1);
+        }
+
+        /* Slider styles */
+        .slider-container {
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.05) 0%, rgba(20, 184, 166, 0.05) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(15, 118, 110, 0.2);
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .slider-label {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 15px;
+        }
+
+        .slider-value {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 18px;
+            min-width: 50px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
+        }
+
+        .slider-wrapper {
+            position: relative;
+            padding: 10px 0;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: linear-gradient(to right, var(--primary) 0%, #e2e8f0 0%);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+            border: 3px solid white;
+            transition: transform 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+            border: 3px solid white;
+        }
+
+        .slider-marks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding: 0 5px;
+        }
+
+        .slider-mark {
+            font-size: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        /* Buttons */
+        .button {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            box-shadow: 0 4px 15px rgba(15, 118, 110, 0.3);
+        }
+
+        .button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(15, 118, 110, 0.4);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button.success {
+            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        .button.success:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4);
+        }
+
+        .button.secondary {
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+        }
+
+        .button.secondary:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.4);
+        }
+
+        /* Preview box */
+        .preview-box {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 18px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+        }
+
+        .preview-item {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Topics display */
+        .topics-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.05) 0%, rgba(20, 184, 166, 0.05) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(15, 118, 110, 0.2);
+        }
+
+        .topics-title {
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .topics-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .topic-tag {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.2);
+            transition: transform 0.2s ease;
+            direction: rtl; /* Hebrew topics */
+        }
+
+        .topic-tag:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Progress console */
+        .progress-console {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #22c55e;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 25px;
+            max-height: 350px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            display: none;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .progress-console.visible {
+            display: block;
+        }
+
+        .progress-line {
+            margin-bottom: 6px;
+            padding: 4px 0;
+        }
+
+        /* Status messages */
+        .status {
+            margin-top: 20px;
+            padding: 18px;
+            border-radius: 12px;
+            display: none;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .status.visible {
+            display: block !important;
+        }
+
+        .status.success {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%);
+            color: #15803d;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status.error {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status.info {
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.15) 0%, rgba(15, 118, 110, 0.05) 100%);
+            color: var(--primary-dark);
+            border: 1px solid rgba(15, 118, 110, 0.3);
+        }
+
+        .spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            animation: spin 0.8s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        .spinner.visible {
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .container {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .step {
+                padding: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎯</div>
+            <h1>Automatic MECE Topic Generator</h1>
+            <p class="subtitle">
+                Upload an Excel/CSV file with open-ended responses, and the system will automatically generate MECE topics in Hebrew and classify all responses
+            </p>
+        </div>
+
+        <!-- Step 1: Upload File -->
+        <div class="step active" id="step1">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Upload File
+            </div>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to browse or drag & drop</div>
+                <div class="upload-hint">Supported formats: .xlsx, .xls, .csv (max 100MB)</div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+            </div>
+            <div class="file-info" id="fileInfo">
+                <div class="file-info-header">
+                    <strong id="fileName"></strong>
+                    <button type="button" class="clear-upload-btn" id="clearUploadButton">✕</button>
+                </div>
+                <span id="fileStats"></span>
+            </div>
+            
+            <div class="spinner" id="spinner"></div>
+            <div class="status" id="status"></div>
+        </div>
+
+        <!-- Step 2: Select Sheet -->
+        <div class="step" id="step2">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Select Sheet
+            </div>
+            <div class="form-group">
+                <label for="sheetSelect">Choose which sheet to analyze:</label>
+                <select id="sheetSelect">
+                    <option value="">-- Select a sheet --</option>
+                </select>
+            </div>
+            
+            <div class="spinner" id="sheetSpinner"></div>
+            <div class="status" id="sheetStatus"></div>
+        </div>
+
+        <!-- Step 3: Select Column & Settings -->
+        <div class="step" id="step3">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Select Column & Settings
+            </div>
+            
+            <div class="form-group">
+                <label for="answerColumn">Answer Column Letter:</label>
+                <input type="text" id="answerColumn" placeholder="e.g., H" maxlength="3">
+                <small style="color: var(--text-light); margin-top: 6px; display: block;">The column containing open-ended responses to analyze. You can change this and preview again after clicking "Preview Selection".</small>
+            </div>
+            
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">Maximum Number of Topics:</span>
+                    <span class="slider-value" id="maxTopicsValue">10</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="maxTopicsSlider" min="2" max="15" value="10">
+                </div>
+                <div class="slider-marks">
+                    <span class="slider-mark">2</span>
+                    <span class="slider-mark">5</span>
+                    <span class="slider-mark">8</span>
+                    <span class="slider-mark">10</span>
+                    <span class="slider-mark">12</span>
+                    <span class="slider-mark">15</span>
+                </div>
+            </div>
+            
+            <button class="button" id="previewButton">Preview Selection</button>
+            
+            <div id="previewBox" style="display: none;">
+                <h4 style="margin: 18px 0 12px 0; color: var(--text-dark);">Preview of Responses:</h4>
+                <div class="preview-box" id="previewContent"></div>
+            </div>
+        </div>
+
+        <!-- Step 4: Generate Topics -->
+        <div class="step" id="step4">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Generate MECE Topics
+            </div>
+            <p style="color: var(--text-light); margin-bottom: 18px; line-height: 1.6;">
+                The system will analyze the responses and automatically generate MECE (Mutually Exclusive, Collectively Exhaustive) topics in Hebrew.
+            </p>
+            <button class="button secondary" id="generateButton">
+                🧠 Generate Topics Automatically
+            </button>
+            
+            <div class="topics-container" id="topicsContainer" style="display: none;">
+                <div class="topics-title">Generated Topics (Hebrew):</div>
+                <div class="topics-list" id="topicsList"></div>
+            </div>
+            
+            <div class="progress-console" id="generateConsole"></div>
+        </div>
+
+        <!-- Step 5: Download -->
+        <div class="step" id="step5">
+            <div class="step-title">
+                <span class="step-number">5</span>
+                Download File
+            </div>
+            <p style="color: var(--text-light); margin-bottom: 18px; line-height: 1.6;">
+                Download the file with the original answer column plus the generated topic columns. The file will be saved to your Desktop.
+            </p>
+            <button class="button success" id="downloadButton">
+                📥 Download File with Topics
+            </button>
+        </div>
+
+        <!-- Progress Console -->
+        <div class="progress-console" id="progressConsole"></div>
+
+        <div class="footer">
+            MECE Topic Generator | GPT 5.1 via Azure
+        </div>
+    </div>
+
+    <script>
+        let uploadedFile = null;
+        let sessionId = null;
+        let sheets = [];
+        let columns = [];
+        let generatedTopics = [];
+        let currentLoadedSheet = null;
+        let downloadFileReady = null;  // Pre-generated file info
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileStats = document.getElementById('fileStats');
+        const clearUploadButton = document.getElementById('clearUploadButton');
+        const sheetSelect = document.getElementById('sheetSelect');
+        const answerColumn = document.getElementById('answerColumn');
+        const maxTopicsSlider = document.getElementById('maxTopicsSlider');
+        const maxTopicsValue = document.getElementById('maxTopicsValue');
+        const previewButton = document.getElementById('previewButton');
+        const previewBox = document.getElementById('previewBox');
+        const previewContent = document.getElementById('previewContent');
+        const generateButton = document.getElementById('generateButton');
+        const generateConsole = document.getElementById('generateConsole');
+        const topicsContainer = document.getElementById('topicsContainer');
+        const topicsList = document.getElementById('topicsList');
+        const downloadButton = document.getElementById('downloadButton');
+        const progressConsole = document.getElementById('progressConsole');
+        const spinner = document.getElementById('spinner');
+        const status = document.getElementById('status');
+        const sheetSpinner = document.getElementById('sheetSpinner');
+        const sheetStatus = document.getElementById('sheetStatus');
+
+        // Slider functionality
+        maxTopicsSlider.addEventListener('input', function() {
+            maxTopicsValue.textContent = this.value;
+            // Update slider background
+            const percentage = ((this.value - 2) / 13) * 100;
+            this.style.background = `linear-gradient(to right, var(--primary) ${percentage}%, #e2e8f0 ${percentage}%)`;
+        });
+
+        // Initialize slider background
+        const initialPercentage = ((maxTopicsSlider.value - 2) / 13) * 100;
+        maxTopicsSlider.style.background = `linear-gradient(to right, var(--primary) ${initialPercentage}%, #e2e8f0 ${initialPercentage}%)`;
+
+        // Track last used answer column to detect changes
+        let lastAnswerColumn = '';
+        
+        // Clear generated topics if answer column changes after topics were generated
+        answerColumn.addEventListener('input', function() {
+            const currentColumn = this.value.trim().toUpperCase();
+            if (lastAnswerColumn && currentColumn !== lastAnswerColumn && generatedTopics.length > 0) {
+                // Column changed after topics were generated - clear them
+                generatedTopics = [];
+                downloadFileReady = null;  // Clear pre-generated file
+                topicsContainer.style.display = 'none';
+                topicsList.innerHTML = '';
+                
+                // Reset step 4 if it was completed
+                const step4 = document.getElementById('step4');
+                if (step4.classList.contains('completed')) {
+                    step4.classList.remove('completed');
+                    step4.classList.add('active');
+                }
+                
+                // Reset step 5 if it was completed
+                const step5 = document.getElementById('step5');
+                if (step5.classList.contains('completed')) {
+                    step5.classList.remove('completed', 'active');
+                }
+                
+                showStatus('info', 'ℹ️ Answer column changed. Please regenerate topics for the new column.');
+            }
+        });
+
+        // Step management
+        function activateStep(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.add('active');
+        }
+
+        function completeStep(stepNum) {
+            const step = document.getElementById(`step${stepNum}`);
+            step.classList.remove('active');
+            step.classList.add('completed');
+        }
+
+        if (clearUploadButton) {
+            clearUploadButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                await resetUploadState();
+            });
+        }
+
+        async function resetUploadState(showMessage = true) {
+            try {
+                await fetch('/reset_upload', { method: 'POST' });
+            } catch (error) {
+                console.warn('Failed to reset upload:', error);
+            }
+
+            uploadedFile = null;
+            sessionId = null;
+            sheets = [];
+            columns = [];
+            generatedTopics = [];
+            currentLoadedSheet = null;
+            downloadFileReady = null;
+
+            fileInput.value = '';
+            fileInfo.classList.remove('visible');
+            fileName.textContent = '';
+            fileStats.textContent = '';
+
+            sheetSelect.innerHTML = '<option value="">-- Select a sheet --</option>';
+            sheetSelect.value = '';
+            sheetSpinner.classList.remove('visible');
+            sheetStatus.classList.remove('visible');
+
+            answerColumn.value = '';
+            maxTopicsSlider.value = 10;
+            maxTopicsValue.textContent = '10';
+
+            previewBox.style.display = 'none';
+            previewContent.innerHTML = '';
+            
+            topicsContainer.style.display = 'none';
+            topicsList.innerHTML = '';
+            
+            generateConsole.classList.remove('visible');
+            generateConsole.innerHTML = '';
+
+            progressConsole.classList.remove('visible');
+            progressConsole.innerHTML = '';
+
+            spinner.classList.remove('visible');
+            status.classList.remove('visible');
+            status.textContent = '';
+
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.remove('completed', 'active');
+                if (index === 0) {
+                    step.classList.add('active');
+                }
+            });
+
+            if (showMessage) {
+                showStatus('info', 'ℹ️ File cleared. Please select a new file.');
+            }
+        }
+
+        // File upload handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        async function handleFile(file) {
+            if (!file) return;
+
+            if (uploadedFile) {
+                await resetUploadState(false);
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            status.className = 'status info visible';
+            status.textContent = '⏳ Processing file...';
+            spinner.classList.add('visible');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    uploadedFile = file;
+                    sessionId = result.session_id;
+                    sheets = result.sheets;
+                    columns = result.columns;
+
+                    fileName.textContent = `📄 ${result.filename}`;
+                    if (result.num_rows !== null && result.num_rows !== undefined) {
+                        fileStats.textContent = `${result.num_rows} rows × ${result.num_columns} columns`;
+                    } else {
+                        fileStats.textContent = `${result.num_columns} columns`;
+                    }
+                    fileInfo.classList.add('visible');
+                    
+                    sheetSelect.innerHTML = '';
+                    sheets.forEach(sheet => {
+                        const option = document.createElement('option');
+                        option.value = sheet;
+                        option.textContent = sheet;
+                        sheetSelect.appendChild(option);
+                    });
+
+                    const defaultSheet = result.default_sheet || sheets[0] || 'Sheet1';
+                    currentLoadedSheet = defaultSheet;
+                    
+                    status.className = 'status success visible';
+                    status.textContent = `✅ File loaded successfully!`;
+                    
+                    if (sheets.length > 1) {
+                        status.textContent += ` (${sheets.length} sheets available)`;
+                    }
+                    setTimeout(() => status.classList.remove('visible'), 4000);
+
+                    completeStep(1);
+                    activateStep(2);
+
+                    if (sheets.length === 1) {
+                        sheetSelect.value = sheets[0];
+                        handleSheetSelection();
+                    }
+                } else {
+                    showStatus('error', `❌ ${result.error || 'Upload failed'}`);
+                }
+            } catch (error) {
+                showStatus('error', `❌ Error: ${error.message}`);
+            } finally {
+                spinner.classList.remove('visible');
+            }
+        }
+
+        // Sheet selection
+        sheetSelect.addEventListener('change', handleSheetSelection);
+
+        async function handleSheetSelection() {
+            const selectedSheet = sheetSelect.value;
+            if (!selectedSheet) return;
+            
+            if (selectedSheet === currentLoadedSheet) {
+                completeStep(2);
+                activateStep(3);
+                return;
+            }
+            
+            sheetSpinner.classList.add('visible');
+            sheetStatus.className = 'status info visible';
+            sheetStatus.textContent = `⏳ Loading sheet "${selectedSheet}"...`;
+            
+            try {
+                const response = await fetch('/load_sheet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sheet_name: selectedSheet })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    currentLoadedSheet = selectedSheet;
+                    if (result.columns) {
+                        columns = result.columns;
+                    }
+                    
+                    sheetStatus.className = 'status success visible';
+                    sheetStatus.textContent = `✅ Sheet "${selectedSheet}" loaded successfully!`;
+                    setTimeout(() => sheetStatus.classList.remove('visible'), 3000);
+                    
+                    completeStep(2);
+                    activateStep(3);
+                } else {
+                    sheetStatus.className = 'status error visible';
+                    sheetStatus.textContent = `❌ Error: ${result.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                sheetStatus.className = 'status error visible';
+                sheetStatus.textContent = `❌ Error: ${error.message}`;
+            } finally {
+                sheetSpinner.classList.remove('visible');
+            }
+        }
+
+        // Preview selection
+        previewButton.addEventListener('click', async () => {
+            const answer = answerColumn.value.trim().toUpperCase();
+            const sheet = sheetSelect.value;
+
+            if (!answer) {
+                showStatus('error', '❌ Please enter a column letter');
+                return;
+            }
+
+            previewButton.disabled = true;
+            previewButton.textContent = 'Loading...';
+
+            try {
+                const response = await fetch('/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sheet_name: sheet,
+                        answer_column: answer
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    previewContent.innerHTML = '';
+                    result.preview.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'preview-item';
+                        div.innerHTML = `<strong>Row ${item.row_num}:</strong> ${item.answer}`;
+                        previewContent.appendChild(div);
+                    });
+
+                    previewBox.style.display = 'block';
+                    // Track the column used for preview
+                    lastAnswerColumn = answer;
+                    // Don't complete step 3 - keep it active so user can change column
+                    // Only activate step 4 if not already active
+                    const step4 = document.getElementById('step4');
+                    if (!step4.classList.contains('active')) {
+                        activateStep(4);
+                    }
+                    showStatus('success', `✅ Preview updated for column ${answer}`);
+                } else {
+                    showStatus('error', `❌ ${result.error || 'Preview failed'}`);
+                }
+            } catch (error) {
+                showStatus('error', `❌ Error: ${error.message}`);
+            } finally {
+                previewButton.disabled = false;
+                previewButton.textContent = 'Preview Selection';
+            }
+        });
+
+        // Generate topics
+        generateButton.addEventListener('click', async () => {
+            const answer = answerColumn.value.trim().toUpperCase();
+            const maxTopics = parseInt(maxTopicsSlider.value);
+
+            generateButton.disabled = true;
+            generateConsole.classList.add('visible');
+            generateConsole.innerHTML = '<div class="progress-line">Starting topic generation...</div>';
+
+            try {
+                const response = await fetch('/generate_topics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        answer_column: answer,
+                        max_topics: maxTopics
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    pollTopicGeneration(result.session_id);
+                } else {
+                    showStatus('error', `❌ ${result.error || 'Topic generation failed'}`);
+                    generateButton.disabled = false;
+                }
+            } catch (error) {
+                showStatus('error', `❌ Error: ${error.message}`);
+                generateButton.disabled = false;
+            }
+        });
+
+        function pollTopicGeneration(sid) {
+            const interval = setInterval(() => {
+                fetch(`/progress/${sid}`)
+                    .then(response => response.json())
+                    .then(result => {
+                        result.messages.forEach(msg => {
+                            const div = document.createElement('div');
+                            div.className = 'progress-line';
+                            div.textContent = msg;
+                            generateConsole.appendChild(div);
+                        });
+                        
+                        generateConsole.scrollTop = generateConsole.scrollHeight;
+                        
+                        // Capture file ready info
+                        if (result.file_ready) {
+                            downloadFileReady = result.file_ready;
+                        }
+                        
+                        if (result.topics) {
+                            generatedTopics = result.topics;
+                            displayTopics(result.topics);
+                            
+                            // Track the column used for topic generation
+                            lastAnswerColumn = answerColumn.value.trim().toUpperCase();
+                            
+                            // Store topics and file info in session
+                            const storeData = { topics: generatedTopics };
+                            if (downloadFileReady) {
+                                storeData.file_path = downloadFileReady.path;
+                                storeData.file_name = downloadFileReady.filename;
+                            }
+                            fetch('/store_topics', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(storeData)
+                            }).catch(err => console.warn('Failed to store topics:', err));
+                        }
+
+                        if (result.done) {
+                            clearInterval(interval);
+                            generateButton.disabled = false;
+                            
+                            if (!result.error && generatedTopics.length > 0) {
+                                completeStep(4);
+                                activateStep(5);
+                                if (downloadFileReady) {
+                                    showStatus('success', '✅ Topics generated and file ready for download!');
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        clearInterval(interval);
+                        showStatus('error', `❌ Error: ${error.message}`);
+                        generateButton.disabled = false;
+                    });
+            }, 1000);
+        }
+
+        function displayTopics(topics) {
+            topicsList.innerHTML = '';
+            topics.forEach((topic, index) => {
+                const tag = document.createElement('span');
+                tag.className = 'topic-tag';
+                tag.textContent = `${index + 1}. ${topic}`;
+                topicsList.appendChild(tag);
+            });
+            topicsContainer.style.display = 'block';
+        }
+
+        // Download - instant since file is pre-generated, saves directly to Desktop
+        downloadButton.addEventListener('click', async () => {
+            if (generatedTopics.length === 0) {
+                showStatus('error', '❌ Please generate topics first');
+                return;
+            }
+
+            if (!downloadFileReady) {
+                showStatus('error', '❌ File not ready. Please wait for topic generation to complete.');
+                return;
+            }
+
+            downloadButton.disabled = true;
+            showStatus('info', '⏳ Saving file to Desktop...');
+
+            try {
+                const response = await fetch(`/download_file/${sessionId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('success', `✅ ${result.message}`);
+                    completeStep(5);
+                } else {
+                    showStatus('error', `❌ ${result.error || 'Download failed'}`);
+                }
+            } catch (error) {
+                showStatus('error', `❌ Error: ${error.message}`);
+            } finally {
+                downloadButton.disabled = false;
+            }
+        });
+
+        function showStatus(type, message) {
+            status.className = `status visible ${type}`;
+            status.innerHTML = message;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+# Azure OpenAI Configuration for GPT 5.1 + DeepSeek
+# Rename this file to .env and fill in your values
+
+# =====================================================
+# GPT 5.1 Configuration (Primary Model)
+# =====================================================
+
+# API Key for Azure OpenAI
+OPENAI_API_KEY=your_api_key_here
+# OR
+API_KEY=your_api_key_here
+
+# Azure OpenAI Endpoint (e.g., https://your-resource.openai.azure.com)
+OPENAI_API_BASE_URL=https://your-azure-resource.openai.azure.com
+# OR
+API_BASE_URL=https://your-azure-resource.openai.azure.com
+
+# Model deployment name (e.g., gpt-5.1, gpt-4o, etc.)
+MODEL=gpt-5.1
+# OR
+OPENAI_MODEL=gpt-5.1
+
+# Azure API Version (optional, defaults to 2025-04-01-preview)
+AZURE_API_VERSION=2025-04-01-preview
+
+# =====================================================
+# DeepSeek Configuration (Secondary Model for parallel processing)
+# =====================================================
+
+# DeepSeek API Key (uses main API key if not specified)
+REPAIR_API_KEY=your_deepseek_api_key_here
+
+# DeepSeek Model name
+REPAIR_MODEL=DeepSeek-V3.1-gavriel
+
+# DeepSeek Endpoint
+REPAIR_ENDPOINT=https://sni-ai-foundry.services.ai.azure.com/openai/v1/
+
+# =====================================================
+# Retry settings (optional)
+# =====================================================
+OPENAI_MAX_RETRIES=5
+OPENAI_RETRY_BACKOFF_SECONDS=2
+
