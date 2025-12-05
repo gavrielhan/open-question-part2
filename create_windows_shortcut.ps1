@@ -45,14 +45,13 @@ if (Test-Path $iconPath) {
 
 $shortcut.Save()
 
-Write-Host "✅ Shortcut created successfully!" -ForegroundColor Green
+Write-Host "Shortcut created successfully!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📱 Location: $shortcutPath" -ForegroundColor Cyan
+Write-Host "Location: $shortcutPath" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "To use:" -ForegroundColor Yellow
 Write-Host "  1. Double-click 'Topic Generator' on your Desktop" -ForegroundColor White
 Write-Host "  2. A command window will open and start the web server" -ForegroundColor White
 Write-Host "  3. Your browser will open automatically" -ForegroundColor White
 Write-Host ""
-Write-Host 'To remove: Right-click the shortcut and select Delete' -ForegroundColor Gray
-
+Write-Host "To remove: Right-click the shortcut and select Delete" -ForegroundColor Gray
