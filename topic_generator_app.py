@@ -201,29 +201,31 @@ def _extract_topics_gpt(
 1. הנושאים חייבים להיות MECE - כל תשובה צריכה להיות שייכת לנושא אחד לפחות, ואין חפיפה בין נושאים
 2. כל הנושאים חייבים להיות בעברית
 3. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-4. הנושאים צריכים להיות ברורים, קצרים וספציפיים
+4. כל נושא חייב להיות תיאורי, מפורט ומדויק - לא מילה אחת או שתיים אלא ביטוי שלם שמתאר את הנושא באופן ברור
 5. נושא "אחר" צריך להופיע רק אם יש תשובות שלא מתאימות לאף קטגוריה
 
-עקרונות חשובים ליצירת נושאים איכותיים:
-- הנושאים חייבים לתאר במדויק את תוכן התשובות ואת הניואנסים שבהן
+עקרונות חשובים ליצירת נושאים איכותיים ומפורטים:
+- הנושאים חייבים לתאר במדויק ובפירוט את תוכן התשובות ואת הניואנסים שבהן
+- כל נושא צריך להיות משפט או ביטוי תיאורי (לדוגמה: "שביעות רצון מהשירות והיחס האישי של הצוות" ולא רק "שירות")
 - חפש את הרעיונות המרכזיים שחוזרים על עצמם בתשובות השונות
 - שים לב להבדלים עדינים בין תשובות דומות - ייתכן שהם מצביעים על נושאים נפרדים
-- הנושאים צריכים להיות מספיק ספציפיים כדי להבחין בין סוגים שונים של תשובות
-- הימנע מנושאים כלליים מדי שלא מוסיפים ערך לסיווג
+- הנושאים צריכים להיות מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגים שונים של תשובות
+- הימנע מנושאים כלליים או קצרים מדי שלא מוסיפים ערך לסיווג
 
 פורמט הפלט:
 החזר רשימת YAML בלבד, ללא הסברים נוספים:
-- נושא ראשון
-- נושא שני
+- נושא ראשון מפורט ותיאורי
+- נושא שני מפורט ותיאורי
 ..."""
 
     user_prompt = f"""נתח בעיון את התשובות הבאות וזהה {min_topics}-{max_topics} נושאים מרכזיים באופן MECE.
+כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
 שים לב לניואנסים ולהבדלים העדינים בין התשובות:{existing_context}
 
 תשובות לניתוח:
 {enumerated_texts}
 
-החזר רשימת נושאים בעברית בפורמט YAML בלבד."""
+החזר רשימת נושאים מפורטים בעברית בפורמט YAML בלבד."""
 
     url = config.get_chat_completions_url()
     headers = {
@@ -239,10 +241,10 @@ def _extract_topics_gpt(
     }
     
     if config.is_azure():
-        payload["max_completion_tokens"] = 1000
+        payload["max_completion_tokens"] = 2000
     else:
         payload["model"] = config.model
-        payload["max_tokens"] = 1000
+        payload["max_tokens"] = 2000
         payload["temperature"] = 0.3
     
     response = requests.post(url, json=payload, headers=headers, timeout=120)
@@ -282,29 +284,31 @@ def _extract_topics_deepseek(
 1. הנושאים חייבים להיות MECE - כל תשובה צריכה להיות שייכת לנושא אחד לפחות, ואין חפיפה בין נושאים
 2. כל הנושאים חייבים להיות בעברית
 3. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-4. הנושאים צריכים להיות ברורים, קצרים וספציפיים
+4. כל נושא חייב להיות תיאורי, מפורט ומדויק - לא מילה אחת או שתיים אלא ביטוי שלם שמתאר את הנושא באופן ברור
 5. נושא "אחר" צריך להופיע רק אם יש תשובות שלא מתאימות לאף קטגוריה
 
-עקרונות חשובים ליצירת נושאים איכותיים:
-- הנושאים חייבים לתאר במדויק את תוכן התשובות ואת הניואנסים שבהן
+עקרונות חשובים ליצירת נושאים איכותיים ומפורטים:
+- הנושאים חייבים לתאר במדויק ובפירוט את תוכן התשובות ואת הניואנסים שבהן
+- כל נושא צריך להיות משפט או ביטוי תיאורי (לדוגמה: "שביעות רצון מהשירות והיחס האישי של הצוות" ולא רק "שירות")
 - חפש את הרעיונות המרכזיים שחוזרים על עצמם בתשובות השונות
 - שים לב להבדלים עדינים בין תשובות דומות - ייתכן שהם מצביעים על נושאים נפרדים
-- הנושאים צריכים להיות מספיק ספציפיים כדי להבחין בין סוגים שונים של תשובות
-- הימנע מנושאים כלליים מדי שלא מוסיפים ערך לסיווג
+- הנושאים צריכים להיות מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגים שונים של תשובות
+- הימנע מנושאים כלליים או קצרים מדי שלא מוסיפים ערך לסיווג
 
 פורמט הפלט:
 החזר רשימת YAML בלבד, ללא הסברים נוספים:
-- נושא ראשון
-- נושא שני
+- נושא ראשון מפורט ותיאורי
+- נושא שני מפורט ותיאורי
 ..."""
 
     user_prompt = f"""נתח בעיון את התשובות הבאות וזהה {min_topics}-{max_topics} נושאים מרכזיים באופן MECE.
+כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
 שים לב לניואנסים ולהבדלים העדינים בין התשובות:{existing_context}
 
 תשובות לניתוח:
 {enumerated_texts}
 
-החזר רשימת נושאים בעברית בפורמט YAML בלבד."""
+החזר רשימת נושאים מפורטים בעברית בפורמט YAML בלבד."""
 
     url = config.get_deepseek_url()
     headers = {
@@ -318,7 +322,7 @@ def _extract_topics_deepseek(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "max_tokens": 1000,
+        "max_tokens": 2000,
         "temperature": 0.3
     }
     
@@ -358,22 +362,24 @@ def _judge_final_topics(
 כללים קריטיים:
 1. הרשימה הסופית חייבת להיות MECE - ללא חפיפה בין נושאים, וכל תשובה אפשרית מכוסה
 2. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-3. בחר את הניסוחים הברורים והספציפיים ביותר
-4. אם יש נושאים דומים, מזג אותם לנושא אחד ברור
-5. אם יש נושא חשוב שמופיע רק ברשימה אחת, כלול אותו
-6. הנושאים חייבים להיות בעברית
+3. כל נושא חייב להיות תיאורי ומפורט - לא מילה בודדת אלא ביטוי או משפט שמתאר את הנושא בבירור
+4. בחר את הניסוחים המפורטים, הברורים והספציפיים ביותר
+5. אם יש נושאים דומים, מזג אותם לנושא אחד מפורט וברור
+6. אם יש נושא חשוב שמופיע רק ברשימה אחת, כלול אותו
+7. הנושאים חייבים להיות בעברית
 
 עקרונות חשובים לבחירת הנושאים הסופיים:
-- העדף נושאים שמתארים במדויק את תוכן התשובות המקוריות
-- בחר בניסוחים שמשקפים את הניואנסים וההבדלים העדינים בתשובות
-- וודא שהנושאים מספיק ספציפיים כדי להבחין בין סוגי תשובות שונים
+- העדף נושאים מפורטים ותיאוריים שמתארים במדויק את תוכן התשובות המקוריות
+- בחר בניסוחים ארוכים ומדויקים שמשקפים את הניואנסים וההבדלים העדינים בתשובות
+- וודא שהנושאים מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגי תשובות שונים
 - הימנע ממיזוג נושאים שונים באופן משמעותי רק בגלל שהם נשמעים דומה
+- הימנע מנושאים קצרים מדי - כל נושא צריך להיות ביטוי תיאורי שלם
 - שמור על נושאים שמוסיפים ערך לסיווג גם אם הם ספציפיים יותר
 
 פורמט הפלט:
 החזר רשימת YAML בלבד, ללא הסברים:
-- נושא ראשון
-- נושא שני
+- נושא ראשון מפורט ותיאורי
+- נושא שני מפורט ותיאורי
 ..."""
 
     user_prompt = f"""להלן שתי רשימות נושאים שנוצרו באופן עצמאי מניתוח תשובות פתוחות:
@@ -385,7 +391,8 @@ def _judge_final_topics(
 {topics_b}
 
 צור רשימה סופית אחת של {min_topics}-{max_topics} נושאים MECE בעברית.
-שלב את הטוב משתי הרשימות, תוך שמירה על נושאים שמתארים במדויק את התשובות וכוללים את הניואנסים החשובים.
+כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
+שלב את הטוב משתי הרשימות, תוך שמירה על נושאים מפורטים שמתארים במדויק את התשובות וכוללים את הניואנסים החשובים.
 החזר YAML בלבד."""
 
     url = config.get_chat_completions_url()
@@ -402,10 +409,10 @@ def _judge_final_topics(
     }
     
     if config.is_azure():
-        payload["max_completion_tokens"] = 1000
+        payload["max_completion_tokens"] = 2000
     else:
         payload["model"] = config.model
-        payload["max_tokens"] = 1000
+        payload["max_tokens"] = 2000
         payload["temperature"] = 0.2
     
     response = requests.post(url, json=payload, headers=headers, timeout=120)
@@ -981,13 +988,28 @@ def generate_topics():
                 # Pre-generate the output file so download is instant
                 queue.put("📄 Preparing file for download...")
                 
-                # Add topic columns to dataframe
-                for topic in topics:
+                # Remove trailing empty rows - more robust check
+                def is_row_empty(row):
+                    for val in row:
+                        if pd.notna(val):
+                            str_val = str(val).strip()
+                            if str_val and str_val.lower() not in ('nan', 'none', ''):
+                                return False
+                    return True
+                
+                while len(df) > 0:
+                    if is_row_empty(df.iloc[-1]):
+                        df = df.iloc[:-1]
+                    else:
+                        break
+                
+                # Insert topic columns right after the answer column
+                answer_col_position = df.columns.get_loc(answer_column_name) + 1
+                for i, topic in enumerate(topics):
                     if topic not in df.columns:
-                        df[topic] = ''
+                        df.insert(answer_col_position + i, topic, '')
                 
                 # Create the CSV content and save to temp file
-                import io
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 original_name = Path(original_filename).stem
                 output_filename = f"{original_name}_with_topics_{timestamp}.csv"
@@ -1143,6 +1165,264 @@ def status():
             'status': 'error',
             'error': str(e)
         }), 500
+
+
+@app.route('/chat_feedback', methods=['POST'])
+def chat_feedback():
+    """Process user feedback to refine topics using GPT 5.1."""
+    try:
+        data = request.json
+        user_message = data.get('message', '')
+        current_topics = data.get('current_topics', [])
+        answer_column = data.get('answer_column', '')
+        
+        if not user_message:
+            return jsonify({'error': 'No message provided'}), 400
+        
+        if not current_topics:
+            return jsonify({'error': 'No current topics provided'}), 400
+        
+        config = AzureOpenAIConfig()
+        
+        # Get sample answers for context
+        sample_answers = []
+        if 'uploaded_file' in session:
+            filepath = Path(session['uploaded_file'])
+            current_sheet = session.get('current_sheet')
+            if filepath.exists():
+                try:
+                    df = load_data_for_processing(filepath, current_sheet)
+                    answer_idx = column_letter_to_index(answer_column)
+                    if answer_idx < len(df.columns):
+                        answer_column_name = df.columns[answer_idx]
+                        texts = df[answer_column_name].dropna().astype(str).tolist()
+                        texts = [t for t in texts if t.strip() and len(t.strip()) > 2]
+                        # Get a sample of answers for context
+                        import random
+                        sample_size = min(20, len(texts))
+                        sample_answers = random.sample(texts, sample_size) if texts else []
+                except Exception as e:
+                    print(f"Error loading sample answers: {e}", file=sys.stderr)
+        
+        # Build context for the model
+        topics_text = "\n".join(f"{i+1}. {topic}" for i, topic in enumerate(current_topics))
+        sample_text = "\n".join(f"- {ans[:200]}" for ans in sample_answers[:10]) if sample_answers else "(No samples available)"
+        
+        system_prompt = """אתה עוזר מומחה בניתוח נושאים ושיפור סיווגים MECE (Mutually Exclusive, Collectively Exhaustive) בעברית.
+
+המשתמש יצר רשימת נושאים מתשובות פתוחות ועכשיו רוצה לשפר אותה.
+
+תפקידך:
+1. להבין את הבקשה של המשתמש
+2. לבצע רק את השינויים שהמשתמש ביקש - לא יותר ולא פחות
+3. להחזיר את רשימת הנושאים המעודכנת
+
+כללים:
+- אם המשתמש מבקש למזג נושאים - מזג רק אותם
+- אם המשתמש מבקש להוסיף נושא - הוסף רק אותו
+- אם המשתמש מבקש לשנות ניסוח - שנה רק את הניסוח המבוקש
+- אל תשנה נושאים שהמשתמש לא הזכיר
+- שמור על עברית תקינה
+
+פורמט התשובה:
+1. תחילה הסבר קצר (משפט או שניים) מה עשית
+2. אחר כך החזר את הרשימה המעודכנת בפורמט YAML:
+
+הסבר: [הסבר קצר]
+
+נושאים:
+- נושא ראשון
+- נושא שני
+..."""
+
+        user_prompt = f"""הנושאים הנוכחיים:
+{topics_text}
+
+דוגמאות מהתשובות המקוריות (לקונטקסט):
+{sample_text}
+
+בקשת המשתמש: {user_message}
+
+בצע רק את השינויים המבוקשים והחזר את הרשימה המעודכנת."""
+
+        url = config.get_chat_completions_url()
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {config.api_key}"
+        }
+        
+        payload = {
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+        }
+        
+        if config.is_azure():
+            payload["max_completion_tokens"] = 1500
+        else:
+            payload["model"] = config.model
+            payload["max_tokens"] = 1500
+            payload["temperature"] = 0.3
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=120)
+        
+        if response.status_code != 200:
+            return jsonify({'error': f'API Error: {response.status_code}'}), 500
+        
+        api_data = response.json()
+        content = api_data["choices"][0]["message"]["content"]
+        
+        # Parse the response
+        explanation = ""
+        new_topics = []
+        
+        # Try to extract explanation and topics
+        if "נושאים:" in content:
+            parts = content.split("נושאים:")
+            explanation_part = parts[0]
+            topics_part = parts[1] if len(parts) > 1 else ""
+            
+            # Extract explanation
+            if "הסבר:" in explanation_part:
+                explanation = explanation_part.split("הסבר:")[-1].strip()
+            else:
+                explanation = explanation_part.strip()
+            
+            # Parse topics YAML
+            cleaned_topics = _strip_code_fences(topics_part)
+            try:
+                parsed_topics = yaml.safe_load(cleaned_topics)
+                if isinstance(parsed_topics, list):
+                    new_topics = [str(t).strip() for t in parsed_topics if t and str(t).strip()]
+            except:
+                # Try line-by-line parsing
+                for line in cleaned_topics.split('\n'):
+                    line = line.strip()
+                    if line.startswith('- '):
+                        topic = line[2:].strip()
+                        if topic:
+                            new_topics.append(topic)
+        else:
+            # Fallback: try to parse the whole content as YAML
+            explanation = "ביצעתי את השינויים המבוקשים."
+            cleaned = _strip_code_fences(content)
+            try:
+                parsed = yaml.safe_load(cleaned)
+                if isinstance(parsed, list):
+                    new_topics = [str(t).strip() for t in parsed if t and str(t).strip()]
+            except:
+                pass
+        
+        # If we couldn't extract topics, return just the explanation
+        if not new_topics:
+            return jsonify({
+                'success': True,
+                'response': content,
+                'new_topics': None
+            })
+        
+        return jsonify({
+            'success': True,
+            'response': explanation if explanation else "ביצעתי את השינויים המבוקשים.",
+            'new_topics': new_topics
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Chat feedback error: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/save_updated_topics', methods=['POST'])
+def save_updated_topics():
+    """Save updated topics and regenerate the output file."""
+    try:
+        data = request.json
+        new_topics = data.get('topics', [])
+        answer_column = data.get('answer_column', '')
+        
+        if not new_topics:
+            return jsonify({'error': 'No topics provided'}), 400
+        
+        if 'uploaded_file' not in session:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        filepath = Path(session['uploaded_file'])
+        current_sheet = session.get('current_sheet')
+        original_filename = session.get('original_filename', 'output')
+        
+        if not filepath.exists():
+            return jsonify({'error': 'Uploaded file not found'}), 400
+        
+        # Load the data
+        df = load_data_for_processing(filepath, current_sheet)
+        answer_idx = column_letter_to_index(answer_column)
+        
+        if answer_idx >= len(df.columns):
+            return jsonify({'error': 'Invalid answer column'}), 400
+        
+        answer_column_name = df.columns[answer_idx]
+        
+        # Remove any previously added topic columns FIRST (before checking for empty rows)
+        old_topics = session.get('generated_topics', [])
+        cols_to_keep = []
+        for col in df.columns:
+            if col not in old_topics:
+                cols_to_keep.append(col)
+        df = df[cols_to_keep]
+        
+        # NOW remove trailing empty rows (after removing old topic columns)
+        def is_row_empty(row):
+            for val in row:
+                if pd.notna(val):
+                    str_val = str(val).strip()
+                    if str_val and str_val.lower() not in ('nan', 'none', ''):
+                        return False
+            return True
+        
+        while len(df) > 0:
+            if is_row_empty(df.iloc[-1]):
+                df = df.iloc[:-1]
+            else:
+                break
+        
+        # Insert new topic columns right after the answer column
+        answer_col_position = df.columns.get_loc(answer_column_name) + 1
+        for i, topic in enumerate(new_topics):
+            if topic not in df.columns:
+                df.insert(answer_col_position + i, topic, '')
+        
+        # Create the CSV content and save to temp file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_name = Path(original_filename).stem
+        output_filename = f"{original_name}_with_topics_{timestamp}.csv"
+        
+        # Save to a temp file for quick download
+        output_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.csv', mode='wb')
+        output_temp.write(b'\xef\xbb\xbf')  # UTF-8 BOM for Excel
+        csv_string = df.to_csv(index=False, encoding='utf-8')
+        output_temp.write(csv_string.encode('utf-8'))
+        output_temp.close()
+        
+        # Update session with new topics and file info
+        session['generated_topics'] = new_topics
+        session['download_file_path'] = output_temp.name
+        session['download_filename'] = output_filename
+        
+        return jsonify({
+            'success': True,
+            'message': 'Topics saved successfully',
+            'file_ready': {
+                'path': output_temp.name,
+                'filename': output_filename
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Save topics error: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
 
 
 def open_browser():
