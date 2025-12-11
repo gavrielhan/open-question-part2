@@ -189,43 +189,43 @@ def _extract_topics_gpt(
     
     existing_context = ""
     if existing_topics:
-        existing_context = f"\n\nנושאים שכבר זוהו בקבוצות קודמות (התייחס אליהם, שלב או הרחב לפי הצורך):\n" + "\n".join(f"- {t}" for t in existing_topics)
+        existing_context = f"\n\nTopics already identified from previous batches (consider merging, expanding, or building upon these):\n" + "\n".join(f"- {t}" for t in existing_topics)
     
     enumerated_texts = "\n".join(f"{i+1}. {text[:500]}" for i, text in enumerate(texts))
     
-    system_prompt = f"""אתה מומחה בניתוח תוכן וסיווג נושאים בעברית, עם התמחות בזיהוי נושאים מתשובות פתוחות.
+    system_prompt = f"""You are a world-class expert in content analysis and topic classification, with deep specialization in analyzing Hebrew text and open-ended survey responses.
 
-המשימה שלך: לנתח קבוצת תשובות פתוחות ולזהות את הנושאים המרכזיים באופן MECE (Mutually Exclusive, Collectively Exhaustive).
+Your task: Analyze a set of open-ended responses written in Hebrew and identify the main topics following the MECE principle (Mutually Exclusive, Collectively Exhaustive).
 
-כללים קריטיים:
-1. הנושאים חייבים להיות MECE - כל תשובה צריכה להיות שייכת לנושא אחד לפחות, ואין חפיפה בין נושאים
-2. כל הנושאים חייבים להיות בעברית
-3. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-4. כל נושא חייב להיות תיאורי, מפורט ומדויק - לא מילה אחת או שתיים אלא ביטוי שלם שמתאר את הנושא באופן ברור
-5. נושא "אחר" צריך להופיע רק אם יש תשובות שלא מתאימות לאף קטגוריה
+Critical Rules:
+1. Topics MUST be MECE - each response should belong to at least one topic, with no overlap between topics
+2. ALL topics MUST be written in Hebrew (the responses are in Hebrew, so topics must match)
+3. Number of topics: minimum {min_topics}, maximum {max_topics}
+4. Each topic MUST be descriptive, detailed, and precise - NOT a single word or two, but a complete phrase that clearly describes the topic
+5. An "Other" topic should only appear if there are responses that don't fit any category
 
-עקרונות חשובים ליצירת נושאים איכותיים ומפורטים:
-- הנושאים חייבים לתאר במדויק ובפירוט את תוכן התשובות ואת הניואנסים שבהן
-- כל נושא צריך להיות משפט או ביטוי תיאורי (לדוגמה: "שביעות רצון מהשירות והיחס האישי של הצוות" ולא רק "שירות")
-- חפש את הרעיונות המרכזיים שחוזרים על עצמם בתשובות השונות
-- שים לב להבדלים עדינים בין תשובות דומות - ייתכן שהם מצביעים על נושאים נפרדים
-- הנושאים צריכים להיות מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגים שונים של תשובות
-- הימנע מנושאים כלליים או קצרים מדי שלא מוסיפים ערך לסיווג
+Key Principles for Creating High-Quality, Detailed Topics:
+- Topics must accurately and thoroughly describe the content and nuances of the responses
+- Each topic should be a sentence or descriptive phrase (e.g., "שביעות רצון מהשירות והיחס האישי של הצוות" NOT just "שירות")
+- Look for central ideas that recur across different responses
+- Pay attention to subtle differences between similar responses - they may indicate separate topics
+- Topics should be specific and detailed enough to clearly distinguish between different types of responses
+- Avoid overly general or short topics that don't add value to the classification
 
-פורמט הפלט:
-החזר רשימת YAML בלבד, ללא הסברים נוספים:
-- נושא ראשון מפורט ותיאורי
-- נושא שני מפורט ותיאורי
+Output Format:
+Return ONLY a YAML list, no additional explanations:
+- First detailed descriptive topic in Hebrew
+- Second detailed descriptive topic in Hebrew
 ..."""
 
-    user_prompt = f"""נתח בעיון את התשובות הבאות וזהה {min_topics}-{max_topics} נושאים מרכזיים באופן MECE.
-כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
-שים לב לניואנסים ולהבדלים העדינים בין התשובות:{existing_context}
+    user_prompt = f"""Carefully analyze the following Hebrew responses and identify {min_topics}-{max_topics} main topics following the MECE principle.
+Each topic MUST be detailed and descriptive in Hebrew - not a single word but a complete phrase that clearly describes the topic.
+Pay attention to nuances and subtle differences between responses:{existing_context}
 
-תשובות לניתוח:
+Responses to analyze (in Hebrew):
 {enumerated_texts}
 
-החזר רשימת נושאים מפורטים בעברית בפורמט YAML בלבד."""
+Return ONLY a YAML list of detailed topics in Hebrew."""
 
     url = config.get_chat_completions_url()
     headers = {
@@ -272,43 +272,43 @@ def _extract_topics_deepseek(
     
     existing_context = ""
     if existing_topics:
-        existing_context = f"\n\nנושאים שכבר זוהו בקבוצות קודמות (התייחס אליהם, שלב או הרחב לפי הצורך):\n" + "\n".join(f"- {t}" for t in existing_topics)
+        existing_context = f"\n\nTopics already identified from previous batches (consider merging, expanding, or building upon these):\n" + "\n".join(f"- {t}" for t in existing_topics)
     
     enumerated_texts = "\n".join(f"{i+1}. {text[:500]}" for i, text in enumerate(texts))
     
-    system_prompt = f"""אתה מומחה בניתוח תוכן וסיווג נושאים בעברית, עם התמחות בזיהוי נושאים מתשובות פתוחות.
+    system_prompt = f"""You are a world-class expert in content analysis and topic classification, with deep specialization in analyzing Hebrew text and open-ended survey responses.
 
-המשימה שלך: לנתח קבוצת תשובות פתוחות ולזהות את הנושאים המרכזיים באופן MECE (Mutually Exclusive, Collectively Exhaustive).
+Your task: Analyze a set of open-ended responses written in Hebrew and identify the main topics following the MECE principle (Mutually Exclusive, Collectively Exhaustive).
 
-כללים קריטיים:
-1. הנושאים חייבים להיות MECE - כל תשובה צריכה להיות שייכת לנושא אחד לפחות, ואין חפיפה בין נושאים
-2. כל הנושאים חייבים להיות בעברית
-3. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-4. כל נושא חייב להיות תיאורי, מפורט ומדויק - לא מילה אחת או שתיים אלא ביטוי שלם שמתאר את הנושא באופן ברור
-5. נושא "אחר" צריך להופיע רק אם יש תשובות שלא מתאימות לאף קטגוריה
+Critical Rules:
+1. Topics MUST be MECE - each response should belong to at least one topic, with no overlap between topics
+2. ALL topics MUST be written in Hebrew (the responses are in Hebrew, so topics must match)
+3. Number of topics: minimum {min_topics}, maximum {max_topics}
+4. Each topic MUST be descriptive, detailed, and precise - NOT a single word or two, but a complete phrase that clearly describes the topic
+5. An "Other" topic should only appear if there are responses that don't fit any category
 
-עקרונות חשובים ליצירת נושאים איכותיים ומפורטים:
-- הנושאים חייבים לתאר במדויק ובפירוט את תוכן התשובות ואת הניואנסים שבהן
-- כל נושא צריך להיות משפט או ביטוי תיאורי (לדוגמה: "שביעות רצון מהשירות והיחס האישי של הצוות" ולא רק "שירות")
-- חפש את הרעיונות המרכזיים שחוזרים על עצמם בתשובות השונות
-- שים לב להבדלים עדינים בין תשובות דומות - ייתכן שהם מצביעים על נושאים נפרדים
-- הנושאים צריכים להיות מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגים שונים של תשובות
-- הימנע מנושאים כלליים או קצרים מדי שלא מוסיפים ערך לסיווג
+Key Principles for Creating High-Quality, Detailed Topics:
+- Topics must accurately and thoroughly describe the content and nuances of the responses
+- Each topic should be a sentence or descriptive phrase (e.g., "שביעות רצון מהשירות והיחס האישי של הצוות" NOT just "שירות")
+- Look for central ideas that recur across different responses
+- Pay attention to subtle differences between similar responses - they may indicate separate topics
+- Topics should be specific and detailed enough to clearly distinguish between different types of responses
+- Avoid overly general or short topics that don't add value to the classification
 
-פורמט הפלט:
-החזר רשימת YAML בלבד, ללא הסברים נוספים:
-- נושא ראשון מפורט ותיאורי
-- נושא שני מפורט ותיאורי
+Output Format:
+Return ONLY a YAML list, no additional explanations:
+- First detailed descriptive topic in Hebrew
+- Second detailed descriptive topic in Hebrew
 ..."""
 
-    user_prompt = f"""נתח בעיון את התשובות הבאות וזהה {min_topics}-{max_topics} נושאים מרכזיים באופן MECE.
-כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
-שים לב לניואנסים ולהבדלים העדינים בין התשובות:{existing_context}
+    user_prompt = f"""Carefully analyze the following Hebrew responses and identify {min_topics}-{max_topics} main topics following the MECE principle.
+Each topic MUST be detailed and descriptive in Hebrew - not a single word but a complete phrase that clearly describes the topic.
+Pay attention to nuances and subtle differences between responses:{existing_context}
 
-תשובות לניתוח:
+Responses to analyze (in Hebrew):
 {enumerated_texts}
 
-החזר רשימת נושאים מפורטים בעברית בפורמט YAML בלבד."""
+Return ONLY a YAML list of detailed topics in Hebrew."""
 
     url = config.get_deepseek_url()
     headers = {
@@ -353,47 +353,47 @@ def _judge_final_topics(
     topics_a = "\n".join(f"- {t}" for t in gpt_topics)
     topics_b = "\n".join(f"- {t}" for t in deepseek_topics)
     
-    system_prompt = f"""אתה מומחה בניתוח תוכן המתמחה ביצירת מערכות סיווג MECE (Mutually Exclusive, Collectively Exhaustive) בעברית.
+    system_prompt = f"""You are a world-class expert in content analysis, specializing in creating MECE (Mutually Exclusive, Collectively Exhaustive) classification systems for Hebrew text.
 
-קיבלת שתי רשימות נושאים שנוצרו על ידי שני מנתחים עצמאיים מאותן תשובות פתוחות.
+You have received two lists of topics that were independently generated by two analysts from the same set of open-ended Hebrew responses.
 
-המשימה שלך: ליצור רשימה אחת סופית של נושאים MECE בעברית, תוך שילוב הטוב משתי הרשימות.
+Your task: Create a single, final list of MECE topics in Hebrew by combining the best from both lists.
 
-כללים קריטיים:
-1. הרשימה הסופית חייבת להיות MECE - ללא חפיפה בין נושאים, וכל תשובה אפשרית מכוסה
-2. מספר הנושאים: מינימום {min_topics}, מקסימום {max_topics}
-3. כל נושא חייב להיות תיאורי ומפורט - לא מילה בודדת אלא ביטוי או משפט שמתאר את הנושא בבירור
-4. בחר את הניסוחים המפורטים, הברורים והספציפיים ביותר
-5. אם יש נושאים דומים, מזג אותם לנושא אחד מפורט וברור
-6. אם יש נושא חשוב שמופיע רק ברשימה אחת, כלול אותו
-7. הנושאים חייבים להיות בעברית
+Critical Rules:
+1. The final list MUST be MECE - no overlap between topics, and all possible responses should be covered
+2. Number of topics: minimum {min_topics}, maximum {max_topics}
+3. Each topic MUST be descriptive and detailed - NOT a single word but a phrase or sentence that clearly describes the topic
+4. Select the most detailed, clear, and specific phrasings
+5. If there are similar topics, merge them into one clear, detailed topic
+6. If an important topic appears in only one list, include it
+7. ALL topics MUST be written in Hebrew
 
-עקרונות חשובים לבחירת הנושאים הסופיים:
-- העדף נושאים מפורטים ותיאוריים שמתארים במדויק את תוכן התשובות המקוריות
-- בחר בניסוחים ארוכים ומדויקים שמשקפים את הניואנסים וההבדלים העדינים בתשובות
-- וודא שהנושאים מספיק ספציפיים ומפורטים כדי להבחין בבירור בין סוגי תשובות שונים
-- הימנע ממיזוג נושאים שונים באופן משמעותי רק בגלל שהם נשמעים דומה
-- הימנע מנושאים קצרים מדי - כל נושא צריך להיות ביטוי תיאורי שלם
-- שמור על נושאים שמוסיפים ערך לסיווג גם אם הם ספציפיים יותר
+Key Principles for Selecting Final Topics:
+- Prefer detailed and descriptive topics that accurately capture the content of the original responses
+- Choose longer, precise phrasings that reflect the nuances and subtle differences in responses
+- Ensure topics are specific and detailed enough to clearly distinguish between different types of responses
+- Avoid merging significantly different topics just because they sound similar
+- Avoid overly short topics - each topic should be a complete descriptive phrase
+- Keep topics that add value to classification even if they are more specific
 
-פורמט הפלט:
-החזר רשימת YAML בלבד, ללא הסברים:
-- נושא ראשון מפורט ותיאורי
-- נושא שני מפורט ותיאורי
+Output Format:
+Return ONLY a YAML list, no explanations:
+- First detailed descriptive topic in Hebrew
+- Second detailed descriptive topic in Hebrew
 ..."""
 
-    user_prompt = f"""להלן שתי רשימות נושאים שנוצרו באופן עצמאי מניתוח תשובות פתוחות:
+    user_prompt = f"""Below are two lists of topics independently generated from analyzing Hebrew open-ended responses:
 
-רשימה א':
+List A (in Hebrew):
 {topics_a}
 
-רשימה ב':
+List B (in Hebrew):
 {topics_b}
 
-צור רשימה סופית אחת של {min_topics}-{max_topics} נושאים MECE בעברית.
-כל נושא חייב להיות מפורט ותיאורי - לא מילה בודדת אלא ביטוי שלם שמתאר את הנושא בבירור.
-שלב את הטוב משתי הרשימות, תוך שמירה על נושאים מפורטים שמתארים במדויק את התשובות וכוללים את הניואנסים החשובים.
-החזר YAML בלבד."""
+Create a single final list of {min_topics}-{max_topics} MECE topics in Hebrew.
+Each topic MUST be detailed and descriptive - not a single word but a complete phrase that clearly describes the topic.
+Combine the best from both lists, keeping detailed topics that accurately describe the responses and include important nuances.
+Return ONLY a YAML list."""
 
     url = config.get_chat_completions_url()
     headers = {
@@ -1208,42 +1208,43 @@ def chat_feedback():
         topics_text = "\n".join(f"{i+1}. {topic}" for i, topic in enumerate(current_topics))
         sample_text = "\n".join(f"- {ans[:200]}" for ans in sample_answers[:10]) if sample_answers else "(No samples available)"
         
-        system_prompt = """אתה עוזר מומחה בניתוח נושאים ושיפור סיווגים MECE (Mutually Exclusive, Collectively Exhaustive) בעברית.
+        system_prompt = """You are an expert assistant specializing in topic analysis and improving MECE (Mutually Exclusive, Collectively Exhaustive) classifications for Hebrew text.
 
-המשתמש יצר רשימת נושאים מתשובות פתוחות ועכשיו רוצה לשפר אותה.
+The user has created a list of topics from Hebrew open-ended responses and now wants to refine it.
 
-תפקידך:
-1. להבין את הבקשה של המשתמש
-2. לבצע רק את השינויים שהמשתמש ביקש - לא יותר ולא פחות
-3. להחזיר את רשימת הנושאים המעודכנת
+Your role:
+1. Understand the user's request
+2. Make ONLY the changes the user requested - no more, no less
+3. Return the updated list of topics
 
-כללים:
-- אם המשתמש מבקש למזג נושאים - מזג רק אותם
-- אם המשתמש מבקש להוסיף נושא - הוסף רק אותו
-- אם המשתמש מבקש לשנות ניסוח - שנה רק את הניסוח המבוקש
-- אל תשנה נושאים שהמשתמש לא הזכיר
-- שמור על עברית תקינה
+Rules:
+- If the user asks to merge topics - merge only those specified
+- If the user asks to add a topic - add only that one
+- If the user asks to change wording - change only the requested phrasing
+- Do NOT modify topics the user didn't mention
+- Keep all topics in proper Hebrew
+- Maintain detailed, descriptive topic names (not single words)
 
-פורמט התשובה:
-1. תחילה הסבר קצר (משפט או שניים) מה עשית
-2. אחר כך החזר את הרשימה המעודכנת בפורמט YAML:
+Response Format:
+1. First, a brief explanation (one or two sentences) of what you did
+2. Then return the updated list in YAML format:
 
-הסבר: [הסבר קצר]
+Explanation: [brief explanation in Hebrew]
 
-נושאים:
-- נושא ראשון
-- נושא שני
+Topics:
+- First topic in Hebrew
+- Second topic in Hebrew
 ..."""
 
-        user_prompt = f"""הנושאים הנוכחיים:
+        user_prompt = f"""Current topics (in Hebrew):
 {topics_text}
 
-דוגמאות מהתשובות המקוריות (לקונטקסט):
+Sample responses from the original data (for context, in Hebrew):
 {sample_text}
 
-בקשת המשתמש: {user_message}
+User request: {user_message}
 
-בצע רק את השינויים המבוקשים והחזר את הרשימה המעודכנת."""
+Make ONLY the requested changes and return the updated list. Keep all topics in Hebrew."""
 
         url = config.get_chat_completions_url()
         headers = {
@@ -1277,15 +1278,23 @@ def chat_feedback():
         explanation = ""
         new_topics = []
         
-        # Try to extract explanation and topics
-        if "נושאים:" in content:
-            parts = content.split("נושאים:")
+        # Try to extract explanation and topics (handle both Hebrew and English keywords)
+        topics_marker = None
+        for marker in ["Topics:", "נושאים:", "topics:"]:
+            if marker in content:
+                topics_marker = marker
+                break
+        
+        if topics_marker:
+            parts = content.split(topics_marker)
             explanation_part = parts[0]
             topics_part = parts[1] if len(parts) > 1 else ""
             
-            # Extract explanation
-            if "הסבר:" in explanation_part:
-                explanation = explanation_part.split("הסבר:")[-1].strip()
+            # Extract explanation (handle both Hebrew and English)
+            for expl_marker in ["Explanation:", "הסבר:", "explanation:"]:
+                if expl_marker in explanation_part:
+                    explanation = explanation_part.split(expl_marker)[-1].strip()
+                    break
             else:
                 explanation = explanation_part.strip()
             
@@ -1305,7 +1314,7 @@ def chat_feedback():
                             new_topics.append(topic)
         else:
             # Fallback: try to parse the whole content as YAML
-            explanation = "ביצעתי את השינויים המבוקשים."
+            explanation = "Changes applied successfully."
             cleaned = _strip_code_fences(content)
             try:
                 parsed = yaml.safe_load(cleaned)
