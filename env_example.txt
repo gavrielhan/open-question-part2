@@ -1,8 +1,8 @@
-# Azure OpenAI Configuration for GPT 5.1 + DeepSeek
+# Azure OpenAI Configuration for GPT 5.2 + DeepSeek
 # Rename this file to .env and fill in your values
 
 # =====================================================
-# GPT 5.1 Configuration (Primary Model)
+# GPT 5.2 Configuration (Primary Model)
 # =====================================================
 
 # API Key for Azure OpenAI
@@ -15,10 +15,10 @@ OPENAI_API_BASE_URL=https://your-azure-resource.openai.azure.com
 # OR
 API_BASE_URL=https://your-azure-resource.openai.azure.com
 
-# Model deployment name (e.g., gpt-5.1, gpt-4o, etc.)
-MODEL=gpt-5.1
+# Model deployment name (e.g., gpt-5.2, gpt-4o, etc.)
+MODEL=gpt-5.2
 # OR
-OPENAI_MODEL=gpt-5.1
+OPENAI_MODEL=gpt-5.2
 
 # Azure API Version (optional, defaults to 2025-04-01-preview)
 AZURE_API_VERSION=2025-04-01-preview

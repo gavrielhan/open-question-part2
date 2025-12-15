@@ -335,17 +335,27 @@
         }
 
         .slider-marks {
-            display: flex;
-            justify-content: space-between;
+            position: relative;
+            height: 20px;
             margin-top: 8px;
-            padding: 0 5px;
         }
-
+        
         .slider-mark {
+            position: absolute;
+            transform: translateX(-50%);
             font-size: 12px;
             color: var(--text-light);
             font-weight: 500;
         }
+        
+        /* Position marks at their actual slider positions: (value - min) / (max - min) * 100% */
+        /* Slider: min=2, max=15, so positions are: (val-2)/13 * 100% */
+        .slider-mark:nth-child(1) { left: 0%; transform: translateX(0); }      /* 2: align left edge */
+        .slider-mark:nth-child(2) { left: 23.08%; }      /* 5: (5-2)/13 = 23.08% */
+        .slider-mark:nth-child(3) { left: 46.15%; }      /* 8: (8-2)/13 = 46.15% */
+        .slider-mark:nth-child(4) { left: 61.54%; }      /* 10: (10-2)/13 = 61.54% */
+        .slider-mark:nth-child(5) { left: 76.92%; }      /* 12: (12-2)/13 = 76.92% */
+        .slider-mark:nth-child(6) { left: 100%; transform: translateX(-100%); } /* 15: align right edge */
 
         /* Buttons */
         .button {
@@ -863,8 +873,8 @@
                     <button class="chat-send-btn" id="chatSendBtn">Send</button>
                 </div>
                 <div class="chat-actions" id="chatActions" style="display: none;">
-                    <button class="chat-action-btn revert" id="revertBtn">↩️ Revert Changes</button>
-                    <button class="chat-action-btn save" id="saveTopicsBtn">💾 Save & Update File</button>
+                    <button class="chat-action-btn revert" id="revertBtn">↩️ Discard Changes</button>
+                    <button class="chat-action-btn save" id="saveTopicsBtn">💾 Apply Changes</button>
                 </div>
                 <div class="updated-topics-container" id="updatedTopicsContainer" style="display: none;">
                     <div class="updated-topics-title">✨ Updated Topics:</div>
@@ -891,7 +901,7 @@
         <div class="progress-console" id="progressConsole"></div>
 
         <div class="footer">
-            MECE Topic Generator | GPT 5.1 via Azure
+            MECE Topic Generator | GPT 5.2 via Azure
         </div>
     </div>
 
@@ -1330,7 +1340,10 @@
                             lastAnswerColumn = answerColumn.value.trim().toUpperCase();
                             
                             // Store topics and file info in session
-                            const storeData = { topics: generatedTopics };
+                            const storeData = { 
+                                topics: generatedTopics,
+                                session_id: sessionId
+                            };
                             if (downloadFileReady) {
                                 storeData.file_path = downloadFileReady.path;
                                 storeData.file_name = downloadFileReady.filename;
@@ -1380,22 +1393,36 @@
             topicsContainer.style.display = 'block';
         }
 
-        // Download - instant since file is pre-generated, saves directly to Desktop
+        // Download - saves file to Desktop with current topics
         downloadButton.addEventListener('click', async () => {
             if (generatedTopics.length === 0) {
                 showStatus('error', '❌ Please generate topics first');
                 return;
             }
 
-            if (!downloadFileReady) {
-                showStatus('error', '❌ File not ready. Please wait for topic generation to complete.');
-                return;
-            }
-
             downloadButton.disabled = true;
-            showStatus('info', '⏳ Saving file to Desktop...');
+            showStatus('info', '⏳ Preparing and saving file to Desktop...');
 
             try {
+                // First ensure the file is generated with current topics
+                const prepareResponse = await fetch('/prepare_download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topics: generatedTopics,
+                        answer_column: answerColumn.value.trim().toUpperCase(),
+                        session_id: sessionId
+                    })
+                });
+                
+                const prepareResult = await prepareResponse.json();
+                
+                if (!prepareResponse.ok || !prepareResult.success) {
+                    showStatus('error', `❌ ${prepareResult.error || 'Failed to prepare file'}`);
+                    return;
+                }
+                
+                // Now download the file
                 const response = await fetch(`/download_file/${sessionId}`);
                 const result = await response.json();
                 
@@ -1470,6 +1497,8 @@
                         pendingTopics = result.new_topics;
                         displayUpdatedTopics(result.new_topics);
                         chatActions.style.display = 'flex';
+                        // Show revert to previous only if we have history
+                        updateRevertButton();
                     }
                 } else {
                     addChatMessage('assistant', `❌ Error: ${result.error || 'Failed to process feedback'}`);
@@ -1502,12 +1531,72 @@
             updatedTopicsContainer.style.display = 'block';
         }
 
-        // Revert to previous topics
-        revertBtn.addEventListener('click', () => {
-            pendingTopics = null;
-            updatedTopicsContainer.style.display = 'none';
-            chatActions.style.display = 'none';
-            addChatMessage('system', '↩️ Changes reverted. Current topics remain unchanged.');
+        function updateRevertButton() {
+            // Update revert button text based on context
+            if (pendingTopics) {
+                revertBtn.textContent = '↩️ Discard Changes';
+            } else if (topicsHistory.length > 1) {
+                revertBtn.textContent = '↩️ Revert to Previous Version';
+            }
+        }
+
+        // Revert/Discard button
+        revertBtn.addEventListener('click', async () => {
+            if (pendingTopics) {
+                // Just discard pending changes (not yet saved)
+                pendingTopics = null;
+                updatedTopicsContainer.style.display = 'none';
+                chatActions.style.display = 'none';
+                addChatMessage('system', '↩️ Changes discarded. Current topics remain unchanged.');
+            } else if (topicsHistory.length > 1) {
+                // Revert to previous saved version
+                revertBtn.disabled = true;
+                saveTopicsBtn.disabled = true;
+                
+                const previousTopics = topicsHistory.pop(); // Remove current from history
+                const revertToTopics = topicsHistory[topicsHistory.length - 1]; // Get previous
+                
+                addChatMessage('system', '↩️ Reverting to previous version...');
+                
+                try {
+                    const response = await fetch('/save_updated_topics', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            topics: revertToTopics,
+                            answer_column: answerColumn.value.trim().toUpperCase(),
+                            session_id: sessionId
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        generatedTopics = [...revertToTopics];
+                        displayTopics(generatedTopics);
+                        
+                        if (result.file_ready) {
+                            downloadFileReady = result.file_ready;
+                        }
+                        
+                        updatedTopicsContainer.style.display = 'none';
+                        chatActions.style.display = 'none';
+                        
+                        addChatMessage('system', '✅ Reverted to previous version successfully!');
+                        showStatus('success', '✅ Reverted to previous topics!');
+                    } else {
+                        // Restore history on failure
+                        topicsHistory.push(previousTopics);
+                        addChatMessage('assistant', `❌ Error: ${result.error || 'Failed to revert'}`);
+                    }
+                } catch (error) {
+                    topicsHistory.push(previousTopics);
+                    addChatMessage('assistant', `❌ Error: ${error.message}`);
+                } finally {
+                    revertBtn.disabled = false;
+                    saveTopicsBtn.disabled = false;
+                }
+            }
         });
 
         // Save new topics and regenerate file
@@ -1524,18 +1613,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         topics: pendingTopics,
-                        answer_column: answerColumn.value.trim().toUpperCase()
+                        answer_column: answerColumn.value.trim().toUpperCase(),
+                        session_id: sessionId
                     })
                 });
 
                 const result = await response.json();
 
                 if (response.ok && result.success) {
-                    // Save to history before updating
+                    // Save current to history before updating
                     topicsHistory.push([...generatedTopics]);
                     
                     // Update current topics
-                    generatedTopics = pendingTopics;
+                    generatedTopics = [...pendingTopics];
                     pendingTopics = null;
                     
                     // Update the main topics display
@@ -1546,11 +1636,18 @@
                         downloadFileReady = result.file_ready;
                     }
                     
-                    // Hide the updated topics preview
+                    // Hide the updated topics preview but keep chat actions visible for revert
                     updatedTopicsContainer.style.display = 'none';
-                    chatActions.style.display = 'none';
                     
-                    addChatMessage('system', '✅ Topics saved! File updated and ready for download.');
+                    // Show revert button if we have history
+                    if (topicsHistory.length > 1) {
+                        chatActions.style.display = 'flex';
+                        updateRevertButton();
+                    } else {
+                        chatActions.style.display = 'none';
+                    }
+                    
+                    addChatMessage('system', '✅ Topics saved! File updated and ready for download. You can continue refining or revert to previous version.');
                     showStatus('success', '✅ Topics updated successfully!');
                 } else {
                     addChatMessage('assistant', `❌ Error: ${result.error || 'Failed to save topics'}`);

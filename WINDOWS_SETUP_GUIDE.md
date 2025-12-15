@@ -153,7 +153,7 @@ You should see something like `Python 3.12.x`
    ```env
    OPENAI_API_KEY=your_actual_api_key_here
    OPENAI_API_BASE_URL=https://your-resource.openai.azure.com
-   MODEL=gpt-5.1
+   MODEL=gpt-5.2
    AZURE_API_VERSION=2025-04-01-preview
    ```
 

@@ -1,6 +1,6 @@
 # מחולל נושאים MECE אוטומטי | Automatic MECE Topic Generator
 
-יישום אינטרנטי ליצירת נושאים MECE אוטומטית מתשובות פתוחות באמצעות GPT 5.1 דרך Azure.
+יישום אינטרנטי ליצירת נושאים MECE אוטומטית מתשובות פתוחות באמצעות GPT 5.2 דרך Azure.
 
 ## תכונות
 
@@ -13,7 +13,7 @@
 ## דרישות מקדימות
 
 - Python 3.9+
-- גישה ל-Azure OpenAI עם GPT 5.1 (או מודל תואם)
+- גישה ל-Azure OpenAI עם GPT 5.2 (או מודל תואם)
 
 ## התקנה
 
@@ -53,7 +53,7 @@ cp .env.example .env
 ```env
 OPENAI_API_KEY=your_azure_api_key
 OPENAI_API_BASE_URL=https://your-resource.openai.azure.com
-MODEL=gpt-5.1
+MODEL=gpt-5.2
 AZURE_API_VERSION=2025-04-01-preview
 ```
 

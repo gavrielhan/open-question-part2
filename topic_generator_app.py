@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Topic Generator Web Application
-Automatically generates MECE topics in Hebrew from open-ended responses using GPT 5.1 via Azure.
+Automatically generates MECE topics in Hebrew from open-ended responses using GPT 5.2 via Azure.
 
 Features:
 - Upload Excel/CSV files
@@ -37,11 +37,50 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
-app.secret_key = os.urandom(24)
+# Use a fixed secret key based on machine info for session persistence across restarts
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'topic-generator-app-secret-key-2024')
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 
 progress_queues = {}
+
+# Store file info outside of session for reliability
+file_store = {}
+
+
+def get_file_info(session_id=None):
+    """Get file info from session or backup store."""
+    # Try session first
+    if 'uploaded_file' in session:
+        return {
+            'uploaded_file': session.get('uploaded_file'),
+            'original_filename': session.get('original_filename'),
+            'current_sheet': session.get('current_sheet'),
+            'generated_topics': session.get('generated_topics', []),
+            'download_file_path': session.get('download_file_path'),
+            'download_filename': session.get('download_filename')
+        }
+    
+    # Try backup store
+    sid = session_id or session.get('session_id')
+    if sid and sid in file_store:
+        return file_store[sid]
+    
+    return None
+
+
+def update_file_info(session_id, **kwargs):
+    """Update file info in both session and backup store."""
+    for key, value in kwargs.items():
+        session[key] = value
+    
+    sid = session_id or session.get('session_id')
+    if sid:
+        if sid not in file_store:
+            file_store[sid] = {}
+        file_store[sid].update(kwargs)
 
 
 # ================================================================
@@ -49,12 +88,12 @@ progress_queues = {}
 # ================================================================
 
 class AzureOpenAIConfig:
-    """Configuration for Azure OpenAI GPT 5.1 and DeepSeek"""
+    """Configuration for Azure OpenAI GPT 5.2 and DeepSeek"""
     
     def __init__(self):
         load_dotenv()
         
-        # GPT 5.1 Configuration
+        # GPT 5.2 Configuration
         self.api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
         if not self.api_key:
             raise ValueError("Missing OPENAI_API_KEY or API_KEY in environment.")
@@ -64,7 +103,7 @@ class AzureOpenAIConfig:
             or os.getenv("API_BASE_URL")
             or "https://api.openai.com"
         )
-        self.model = os.getenv("MODEL") or os.getenv("OPENAI_MODEL", "gpt-5.1")
+        self.model = os.getenv("MODEL") or os.getenv("OPENAI_MODEL", "gpt-5.2")
         self.api_version = os.getenv("AZURE_API_VERSION", "2025-04-01-preview")
         self.max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "5"))
         self.retry_backoff_seconds = float(os.getenv("OPENAI_RETRY_BACKOFF_SECONDS", "2"))
@@ -185,47 +224,56 @@ def _extract_topics_gpt(
     min_topics: int,
     existing_topics: List[str] = None
 ) -> List[str]:
-    """Extract topics using GPT 5.1"""
+    """Extract topics using GPT 5.2"""
     
     existing_context = ""
     if existing_topics:
-        existing_context = f"\n\nTopics already identified from previous batches (consider merging, expanding, or building upon these):\n" + "\n".join(f"- {t}" for t in existing_topics)
+        existing_context = f"\n\nTopics already identified (ensure new topics don't overlap with these):\n" + "\n".join(f"- {t}" for t in existing_topics)
     
     enumerated_texts = "\n".join(f"{i+1}. {text[:500]}" for i, text in enumerate(texts))
     
-    system_prompt = f"""You are a world-class expert in content analysis and topic classification, with deep specialization in analyzing Hebrew text and open-ended survey responses.
+    system_prompt = f"""You are a world-class expert in MECE (Mutually Exclusive, Collectively Exhaustive) topic classification for Hebrew survey responses.
 
-Your task: Analyze a set of open-ended responses written in Hebrew and identify the main topics following the MECE principle (Mutually Exclusive, Collectively Exhaustive).
+Your task: Identify {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics from Hebrew open-ended responses.
 
-Critical Rules:
-1. Topics MUST be MECE - each response should belong to at least one topic, with no overlap between topics
-2. ALL topics MUST be written in Hebrew (the responses are in Hebrew, so topics must match)
-3. Number of topics: minimum {min_topics}, maximum {max_topics}
-4. Each topic MUST be descriptive, detailed, and precise - NOT a single word or two, but a complete phrase that clearly describes the topic
-5. An "Other" topic should only appear if there are responses that don't fit any category
+## CRITICAL: MUTUAL EXCLUSIVITY
+Each topic must be COMPLETELY DISTINCT from all others. Before adding a topic, ask:
+- "Does this overlap with any other topic I've identified?"
+- "Could a response fit into multiple of my topics?"
+If YES to either → The topics are NOT mutually exclusive → Redesign them
 
-Key Principles for Creating High-Quality, Detailed Topics:
-- Topics must accurately and thoroughly describe the content and nuances of the responses
-- Each topic should be a sentence or descriptive phrase (e.g., "שביעות רצון מהשירות והיחס האישי של הצוות" NOT just "שירות")
-- Look for central ideas that recur across different responses
-- Pay attention to subtle differences between similar responses - they may indicate separate topics
-- Topics should be specific and detailed enough to clearly distinguish between different types of responses
-- Avoid overly general or short topics that don't add value to the classification
+## Common Mistakes to AVOID:
+- Creating "Service quality" AND "Staff behavior" → Staff IS part of service → OVERLAP
+- Creating "Pricing" AND "Value for money" → These overlap significantly
+- Creating "Wait times" AND "Efficiency" → Wait times IS about efficiency → OVERLAP
+- Creating both a general topic and its subtopics
 
-Output Format:
-Return ONLY a YAML list, no additional explanations:
-- First detailed descriptive topic in Hebrew
-- Second detailed descriptive topic in Hebrew
+## Rules:
+1. MUTUALLY EXCLUSIVE: No overlap between topics. Each response fits ONE topic only.
+2. EXHAUSTIVE: Together, topics should cover all possible responses
+3. All topics in Hebrew
+4. Each topic: detailed descriptive phrase (not single words)
+5. {min_topics}-{max_topics} topics total
+6. "אחר" (Other) only if absolutely necessary
+7. NEVER use curly braces {{ }} or brackets around topics
+
+## Output:
+Return ONLY a clean YAML list (no curly braces):
+- נושא בעברית
+- נושא נוסף בעברית
 ..."""
 
-    user_prompt = f"""Carefully analyze the following Hebrew responses and identify {min_topics}-{max_topics} main topics following the MECE principle.
-Each topic MUST be detailed and descriptive in Hebrew - not a single word but a complete phrase that clearly describes the topic.
-Pay attention to nuances and subtle differences between responses:{existing_context}
+    user_prompt = f"""Analyze these Hebrew responses and create {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics.
 
-Responses to analyze (in Hebrew):
+IMPORTANT: 
+- Ensure NO overlap between topics
+- NO curly braces or special brackets in topic names
+- Each response should fit into ONE topic only{existing_context}
+
+Responses (Hebrew):
 {enumerated_texts}
 
-Return ONLY a YAML list of detailed topics in Hebrew."""
+Return ONLY a clean YAML list of mutually exclusive topics in Hebrew (no curly braces)."""
 
     url = config.get_chat_completions_url()
     headers = {
@@ -254,10 +302,12 @@ Return ONLY a YAML list of detailed topics in Hebrew."""
     data = response.json()
     content = data["choices"][0]["message"]["content"]
     cleaned = _strip_code_fences(content)
+    # Remove any curly braces
+    cleaned = cleaned.replace('{', '').replace('}', '')
     topics = yaml.safe_load(cleaned)
     
     if isinstance(topics, list):
-        return [str(t).strip() for t in topics if t and str(t).strip()]
+        return [str(t).strip().replace('{', '').replace('}', '') for t in topics if t and str(t).strip()]
     return []
 
 
@@ -272,43 +322,52 @@ def _extract_topics_deepseek(
     
     existing_context = ""
     if existing_topics:
-        existing_context = f"\n\nTopics already identified from previous batches (consider merging, expanding, or building upon these):\n" + "\n".join(f"- {t}" for t in existing_topics)
+        existing_context = f"\n\nTopics already identified (ensure new topics don't overlap with these):\n" + "\n".join(f"- {t}" for t in existing_topics)
     
     enumerated_texts = "\n".join(f"{i+1}. {text[:500]}" for i, text in enumerate(texts))
     
-    system_prompt = f"""You are a world-class expert in content analysis and topic classification, with deep specialization in analyzing Hebrew text and open-ended survey responses.
+    system_prompt = f"""You are a world-class expert in MECE (Mutually Exclusive, Collectively Exhaustive) topic classification for Hebrew survey responses.
 
-Your task: Analyze a set of open-ended responses written in Hebrew and identify the main topics following the MECE principle (Mutually Exclusive, Collectively Exhaustive).
+Your task: Identify {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics from Hebrew open-ended responses.
 
-Critical Rules:
-1. Topics MUST be MECE - each response should belong to at least one topic, with no overlap between topics
-2. ALL topics MUST be written in Hebrew (the responses are in Hebrew, so topics must match)
-3. Number of topics: minimum {min_topics}, maximum {max_topics}
-4. Each topic MUST be descriptive, detailed, and precise - NOT a single word or two, but a complete phrase that clearly describes the topic
-5. An "Other" topic should only appear if there are responses that don't fit any category
+## CRITICAL: MUTUAL EXCLUSIVITY
+Each topic must be COMPLETELY DISTINCT from all others. Before adding a topic, ask:
+- "Does this overlap with any other topic I've identified?"
+- "Could a response fit into multiple of my topics?"
+If YES to either → The topics are NOT mutually exclusive → Redesign them
 
-Key Principles for Creating High-Quality, Detailed Topics:
-- Topics must accurately and thoroughly describe the content and nuances of the responses
-- Each topic should be a sentence or descriptive phrase (e.g., "שביעות רצון מהשירות והיחס האישי של הצוות" NOT just "שירות")
-- Look for central ideas that recur across different responses
-- Pay attention to subtle differences between similar responses - they may indicate separate topics
-- Topics should be specific and detailed enough to clearly distinguish between different types of responses
-- Avoid overly general or short topics that don't add value to the classification
+## Common Mistakes to AVOID:
+- Creating "Service quality" AND "Staff behavior" → Staff IS part of service → OVERLAP
+- Creating "Pricing" AND "Value for money" → These overlap significantly
+- Creating "Wait times" AND "Efficiency" → Wait times IS about efficiency → OVERLAP
+- Creating both a general topic and its subtopics
 
-Output Format:
-Return ONLY a YAML list, no additional explanations:
-- First detailed descriptive topic in Hebrew
-- Second detailed descriptive topic in Hebrew
+## Rules:
+1. MUTUALLY EXCLUSIVE: No overlap between topics. Each response fits ONE topic only.
+2. EXHAUSTIVE: Together, topics should cover all possible responses
+3. All topics in Hebrew
+4. Each topic: detailed descriptive phrase (not single words)
+5. {min_topics}-{max_topics} topics total
+6. "אחר" (Other) only if absolutely necessary
+7. NEVER use curly braces {{ }} or brackets around topics
+
+## Output:
+Return ONLY a clean YAML list (no curly braces):
+- נושא בעברית
+- נושא נוסף בעברית
 ..."""
 
-    user_prompt = f"""Carefully analyze the following Hebrew responses and identify {min_topics}-{max_topics} main topics following the MECE principle.
-Each topic MUST be detailed and descriptive in Hebrew - not a single word but a complete phrase that clearly describes the topic.
-Pay attention to nuances and subtle differences between responses:{existing_context}
+    user_prompt = f"""Analyze these Hebrew responses and create {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics.
 
-Responses to analyze (in Hebrew):
+IMPORTANT: 
+- Ensure NO overlap between topics
+- NO curly braces or special brackets in topic names
+- Each response should fit into ONE topic only{existing_context}
+
+Responses (Hebrew):
 {enumerated_texts}
 
-Return ONLY a YAML list of detailed topics in Hebrew."""
+Return ONLY a clean YAML list of mutually exclusive topics in Hebrew (no curly braces)."""
 
     url = config.get_deepseek_url()
     headers = {
@@ -333,67 +392,247 @@ Return ONLY a YAML list of detailed topics in Hebrew."""
     data = response.json()
     content = data["choices"][0]["message"]["content"]
     cleaned = _strip_code_fences(content)
+    # Remove any curly braces
+    cleaned = cleaned.replace('{', '').replace('}', '')
     topics = yaml.safe_load(cleaned)
     
     if isinstance(topics, list):
-        return [str(t).strip() for t in topics if t and str(t).strip()]
+        return [str(t).strip().replace('{', '').replace('}', '') for t in topics if t and str(t).strip()]
     return []
 
 
-def _judge_final_topics(
-    gpt_topics: List[str],
-    deepseek_topics: List[str],
+def _summarize_topics_gpt(
+    accumulated_topics: List[str],
     config: AzureOpenAIConfig,
     max_topics: int,
     min_topics: int
 ) -> List[str]:
-    """Use GPT 5.1 as a judge to select the final MECE topics from both lists"""
+    """GPT summarizes its accumulated topics into a MECE list"""
     
-    # Combine and label without revealing source
-    topics_a = "\n".join(f"- {t}" for t in gpt_topics)
-    topics_b = "\n".join(f"- {t}" for t in deepseek_topics)
+    topics_text = "\n".join(f"- {t}" for t in accumulated_topics)
     
-    system_prompt = f"""You are a world-class expert in content analysis, specializing in creating MECE (Mutually Exclusive, Collectively Exhaustive) classification systems for Hebrew text.
+    system_prompt = f"""You are a world-class expert in creating MECE (Mutually Exclusive, Collectively Exhaustive) topic classifications.
 
-You have received two lists of topics that were independently generated by two analysts from the same set of open-ended Hebrew responses.
+You have accumulated topics from analyzing multiple batches of Hebrew survey responses. Now you must consolidate them into a FINAL MECE list of {min_topics}-{max_topics} topics.
 
-Your task: Create a single, final list of MECE topics in Hebrew by combining the best from both lists.
+## CRITICAL RULES:
 
-Critical Rules:
-1. The final list MUST be MECE - no overlap between topics, and all possible responses should be covered
-2. Number of topics: minimum {min_topics}, maximum {max_topics}
-3. Each topic MUST be descriptive and detailed - NOT a single word but a phrase or sentence that clearly describes the topic
-4. Select the most detailed, clear, and specific phrasings
-5. If there are similar topics, merge them into one clear, detailed topic
-6. If an important topic appears in only one list, include it
-7. ALL topics MUST be written in Hebrew
+### 1. MUTUAL EXCLUSIVITY
+Each topic must be COMPLETELY DISTINCT. For any pair of topics, ask:
+- "Could ONE response fit into BOTH topics?"
+- If YES → MERGE them into one topic
 
-Key Principles for Selecting Final Topics:
-- Prefer detailed and descriptive topics that accurately capture the content of the original responses
-- Choose longer, precise phrasings that reflect the nuances and subtle differences in responses
-- Ensure topics are specific and detailed enough to clearly distinguish between different types of responses
-- Avoid merging significantly different topics just because they sound similar
-- Avoid overly short topics - each topic should be a complete descriptive phrase
-- Keep topics that add value to classification even if they are more specific
+### 2. NO OVERLAPS ALLOWED
+Common overlaps to eliminate:
+- "Service quality" + "Staff attitude" → Staff IS service → MERGE
+- "Pricing" + "Value for money" → OVERLAP → MERGE
+- General topic + its subtopic → MERGE
 
-Output Format:
-Return ONLY a YAML list, no explanations:
-- First detailed descriptive topic in Hebrew
-- Second detailed descriptive topic in Hebrew
+### 3. FORMAT RULES
+- NEVER use curly braces {{ or }} in topic names
+- Each topic: clear Hebrew phrase (not single words)
+- No special characters or brackets around topics
+- {min_topics}-{max_topics} topics total
+
+## Output:
+Return ONLY a clean YAML list:
+- נושא ראשון בעברית
+- נושא שני בעברית
 ..."""
 
-    user_prompt = f"""Below are two lists of topics independently generated from analyzing Hebrew open-ended responses:
+    user_prompt = f"""Consolidate these accumulated topics into {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics in Hebrew:
 
-List A (in Hebrew):
+{topics_text}
+
+IMPORTANT:
+1. Merge any overlapping topics
+2. NO curly braces or special brackets in topic names
+3. Each response should fit into ONE topic only
+
+Return ONLY a clean YAML list of mutually exclusive topics in Hebrew."""
+
+    url = config.get_chat_completions_url()
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {config.api_key}"
+    }
+    
+    payload = {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+    }
+    
+    if config.is_azure():
+        payload["max_completion_tokens"] = 2000
+    else:
+        payload["model"] = config.model
+        payload["max_tokens"] = 2000
+        payload["temperature"] = 0.2
+    
+    response = requests.post(url, json=payload, headers=headers, timeout=120)
+    if response.status_code != 200:
+        raise Exception(f"GPT Summarize API Error {response.status_code}")
+    
+    data = response.json()
+    content = data["choices"][0]["message"]["content"]
+    cleaned = _strip_code_fences(content)
+    # Remove any curly braces from topics
+    cleaned = cleaned.replace('{', '').replace('}', '')
+    topics = yaml.safe_load(cleaned)
+    
+    if isinstance(topics, list):
+        # Clean each topic of curly braces
+        return [str(t).strip().replace('{', '').replace('}', '') for t in topics if t and str(t).strip()]
+    return []
+
+
+def _summarize_topics_deepseek(
+    accumulated_topics: List[str],
+    config: AzureOpenAIConfig,
+    max_topics: int,
+    min_topics: int
+) -> List[str]:
+    """DeepSeek summarizes its accumulated topics into a MECE list"""
+    
+    topics_text = "\n".join(f"- {t}" for t in accumulated_topics)
+    
+    system_prompt = f"""You are a world-class expert in creating MECE (Mutually Exclusive, Collectively Exhaustive) topic classifications.
+
+You have accumulated topics from analyzing multiple batches of Hebrew survey responses. Now you must consolidate them into a FINAL MECE list of {min_topics}-{max_topics} topics.
+
+## CRITICAL RULES:
+
+### 1. MUTUAL EXCLUSIVITY
+Each topic must be COMPLETELY DISTINCT. For any pair of topics, ask:
+- "Could ONE response fit into BOTH topics?"
+- If YES → MERGE them into one topic
+
+### 2. NO OVERLAPS ALLOWED
+Common overlaps to eliminate:
+- "Service quality" + "Staff attitude" → Staff IS service → MERGE
+- "Pricing" + "Value for money" → OVERLAP → MERGE
+- General topic + its subtopic → MERGE
+
+### 3. FORMAT RULES
+- NEVER use curly braces {{ or }} in topic names
+- Each topic: clear Hebrew phrase (not single words)
+- No special characters or brackets around topics
+- {min_topics}-{max_topics} topics total
+
+## Output:
+Return ONLY a clean YAML list:
+- נושא ראשון בעברית
+- נושא שני בעברית
+..."""
+
+    user_prompt = f"""Consolidate these accumulated topics into {min_topics}-{max_topics} STRICTLY MUTUALLY EXCLUSIVE topics in Hebrew:
+
+{topics_text}
+
+IMPORTANT:
+1. Merge any overlapping topics
+2. NO curly braces or special brackets in topic names
+3. Each response should fit into ONE topic only
+
+Return ONLY a clean YAML list of mutually exclusive topics in Hebrew."""
+
+    url = config.get_deepseek_url()
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {config.deepseek_api_key}"
+    }
+    
+    payload = {
+        "model": config.deepseek_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "max_tokens": 2000,
+        "temperature": 0.2
+    }
+    
+    response = requests.post(url, json=payload, headers=headers, timeout=120)
+    if response.status_code != 200:
+        raise Exception(f"DeepSeek Summarize API Error {response.status_code}")
+    
+    data = response.json()
+    content = data["choices"][0]["message"]["content"]
+    cleaned = _strip_code_fences(content)
+    # Remove any curly braces from topics
+    cleaned = cleaned.replace('{', '').replace('}', '')
+    topics = yaml.safe_load(cleaned)
+    
+    if isinstance(topics, list):
+        # Clean each topic of curly braces
+        return [str(t).strip().replace('{', '').replace('}', '') for t in topics if t and str(t).strip()]
+    return []
+
+
+def _judge_final_topics(
+    gpt_summarized: List[str],
+    deepseek_summarized: List[str],
+    config: AzureOpenAIConfig,
+    max_topics: int,
+    min_topics: int
+) -> List[str]:
+    """GPT acts as final judge to create the ultimate MECE topic list from both summarized lists"""
+    
+    topics_a = "\n".join(f"- {t}" for t in gpt_summarized)
+    topics_b = "\n".join(f"- {t}" for t in deepseek_summarized)
+    
+    system_prompt = f"""You are the FINAL JUDGE for creating a MECE (Mutually Exclusive, Collectively Exhaustive) topic classification system.
+
+Two independent analysts have each summarized their findings into MECE topic lists from the same Hebrew survey responses. Your job: Create the ULTIMATE final list.
+
+## YOUR CRITICAL TASK:
+
+### 1. STRICT MUTUAL EXCLUSIVITY
+For EVERY pair of topics in your final list, verify:
+- "Could a SINGLE response fit into BOTH of these?"
+- If YES → They MUST be merged
+
+### 2. ELIMINATE ALL OVERLAPS
+Even if topics come from different analysts, they may overlap:
+- Similar concepts with different wording → MERGE
+- General + specific versions → Keep ONE
+- Cause and effect relationships → MERGE
+- Synonymous descriptions → MERGE
+
+### 3. HONOR THE LIMIT
+User requested MAXIMUM {max_topics} topics. Do NOT exceed this.
+
+### 4. FORMAT RULES (CRITICAL)
+- NEVER include curly braces {{ or }} in any topic
+- NEVER include brackets [ ] or parentheses with special meaning
+- Each topic: clean Hebrew phrase
+- No decorations or special characters around topic text
+
+## Output:
+Return ONLY a clean YAML list of EXACTLY {min_topics}-{max_topics} topics:
+- נושא בעברית
+- נושא נוסף בעברית
+..."""
+
+    user_prompt = f"""Two analysts produced these MECE topic summaries from Hebrew responses:
+
+Analyst A's topics:
 {topics_a}
 
-List B (in Hebrew):
+Analyst B's topics:
 {topics_b}
 
-Create a single final list of {min_topics}-{max_topics} MECE topics in Hebrew.
-Each topic MUST be detailed and descriptive - not a single word but a complete phrase that clearly describes the topic.
-Combine the best from both lists, keeping detailed topics that accurately describe the responses and include important nuances.
-Return ONLY a YAML list."""
+Create the FINAL list of {min_topics}-{max_topics} MUTUALLY EXCLUSIVE topics in Hebrew.
+
+CRITICAL CHECKLIST:
+✓ Maximum {max_topics} topics (user's limit)
+✓ NO overlapping topics - merge any that could apply to same response
+✓ NO curly braces or special brackets in topic names
+✓ All topics in Hebrew
+
+Return ONLY a clean YAML list."""
 
     url = config.get_chat_completions_url()
     headers = {
@@ -441,9 +680,9 @@ def generate_mece_topics(
     
     Process:
     1. Split texts into batches
-    2. For each batch, run GPT 5.1 and DeepSeek in parallel
+    2. For each batch, run GPT 5.2 and DeepSeek in parallel
     3. Each batch receives accumulated topics from previous batches as context
-    4. After all batches, GPT 5.1 acts as judge to create final topic list
+    4. After all batches, GPT 5.2 acts as judge to create final topic list
     
     Args:
         texts: List of response texts to analyze
@@ -485,7 +724,7 @@ def generate_mece_topics(
     # Process each batch
     for batch_idx, batch_texts in enumerate(batches, 1):
         if progress_callback:
-            progress_callback(f"⚡ Processing batch {batch_idx}/{len(batches)} with GPT 5.1 + DeepSeek in parallel...")
+            progress_callback(f"⚡ Processing batch {batch_idx}/{len(batches)} with GPT 5.2 + DeepSeek in parallel...")
         
         gpt_result = None
         deepseek_result = None
@@ -514,11 +753,11 @@ def generate_mece_topics(
             try:
                 gpt_result = gpt_future.result(timeout=180)
                 if progress_callback:
-                    progress_callback(f"  ✅ GPT 5.1: found {len(gpt_result)} topics")
+                    progress_callback(f"  ✅ GPT 5.2: found {len(gpt_result)} topics")
             except Exception as e:
                 gpt_error = str(e)
                 if progress_callback:
-                    progress_callback(f"  ⚠️ GPT 5.1 error: {gpt_error}")
+                    progress_callback(f"  ⚠️ GPT 5.2 error: {gpt_error}")
             
             try:
                 deepseek_result = deepseek_future.result(timeout=180)
@@ -545,57 +784,97 @@ def generate_mece_topics(
             time.sleep(0.5)
     
     if progress_callback:
-        progress_callback(f"📊 GPT 5.1 accumulated {len(gpt_accumulated_topics)} topics")
-        progress_callback(f"📊 DeepSeek accumulated {len(deepseek_accumulated_topics)} topics")
+        progress_callback(f"📊 GPT accumulated {len(gpt_accumulated_topics)} raw topics")
+        progress_callback(f"📊 DeepSeek accumulated {len(deepseek_accumulated_topics)} raw topics")
     
     # Handle case where one model completely failed
     if not gpt_accumulated_topics and not deepseek_accumulated_topics:
         raise RuntimeError("Both models failed to generate any topics")
     
-    if not gpt_accumulated_topics:
-        if progress_callback:
-            progress_callback("⚠️ GPT 5.1 failed, using DeepSeek topics only")
-        return deepseek_accumulated_topics[:max_topics]
+    # === FINAL THREE-STEP PROCESS ===
     
-    if not deepseek_accumulated_topics:
+    # Step 1: DeepSeek summarizes its accumulated topics into MECE list
+    deepseek_summarized = []
+    if deepseek_accumulated_topics:
         if progress_callback:
-            progress_callback("⚠️ DeepSeek failed, using GPT 5.1 topics only")
-        return gpt_accumulated_topics[:max_topics]
+            progress_callback("🔄 Step 1/3: DeepSeek summarizing its topics into MECE list...")
+        try:
+            deepseek_summarized = _summarize_topics_deepseek(
+                deepseek_accumulated_topics, config, max_topics, min_topics
+            )
+            if progress_callback:
+                progress_callback(f"  ✅ DeepSeek summarized to {len(deepseek_summarized)} MECE topics")
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"  ⚠️ DeepSeek summarize error: {e}")
+            deepseek_summarized = deepseek_accumulated_topics[:max_topics]
     
-    # Final judging step - GPT 5.1 decides the final topics
+    # Step 2: GPT summarizes its accumulated topics into MECE list
+    gpt_summarized = []
+    if gpt_accumulated_topics:
+        if progress_callback:
+            progress_callback("🔄 Step 2/3: GPT summarizing its topics into MECE list...")
+        try:
+            gpt_summarized = _summarize_topics_gpt(
+                gpt_accumulated_topics, config, max_topics, min_topics
+            )
+            if progress_callback:
+                progress_callback(f"  ✅ GPT summarized to {len(gpt_summarized)} MECE topics")
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"  ⚠️ GPT summarize error: {e}")
+            gpt_summarized = gpt_accumulated_topics[:max_topics]
+    
+    # Handle single model success
+    if not gpt_summarized and deepseek_summarized:
+        if progress_callback:
+            progress_callback("⚠️ Using DeepSeek summary only (GPT failed)")
+        return [t.replace('{', '').replace('}', '') for t in deepseek_summarized[:max_topics]]
+    
+    if not deepseek_summarized and gpt_summarized:
+        if progress_callback:
+            progress_callback("⚠️ Using GPT summary only (DeepSeek failed)")
+        return [t.replace('{', '').replace('}', '') for t in gpt_summarized[:max_topics]]
+    
+    # Step 3: GPT (as judge) creates final MECE list from both summaries
     if progress_callback:
-        progress_callback("⚖️ GPT 5.1 judging final topics from both models...")
+        progress_callback("⚖️ Step 3/3: GPT judging final topics from both summaries...")
     
     try:
         final_topics = _judge_final_topics(
-            gpt_accumulated_topics,
-            deepseek_accumulated_topics,
+            gpt_summarized,
+            deepseek_summarized,
             config,
             max_topics,
             min_topics
         )
         
+        # Clean any remaining curly braces
+        final_topics = [t.replace('{', '').replace('}', '') for t in final_topics]
+        
         if final_topics and len(final_topics) >= min_topics:
             if progress_callback:
-                progress_callback(f"✅ Final MECE topics: {len(final_topics)} topics selected")
-            return final_topics
+                progress_callback(f"✅ Final MECE topics: {len(final_topics)} topics selected (max was {max_topics})")
+            return final_topics[:max_topics]
         else:
-            # Fallback: merge both lists and take top unique ones
+            # Fallback: merge both summarized lists
             if progress_callback:
-                progress_callback("⚠️ Judge produced insufficient topics, merging both lists...")
+                progress_callback("⚠️ Judge produced insufficient topics, merging summaries...")
             merged = []
-            for t in gpt_accumulated_topics + deepseek_accumulated_topics:
-                if t not in merged:
-                    merged.append(t)
+            for t in gpt_summarized + deepseek_summarized:
+                clean_t = t.replace('{', '').replace('}', '')
+                if clean_t not in merged:
+                    merged.append(clean_t)
             return merged[:max_topics]
             
     except Exception as e:
         if progress_callback:
-            progress_callback(f"⚠️ Judging error: {e}, merging both lists...")
+            progress_callback(f"⚠️ Judging error: {e}, merging summaries...")
         merged = []
-        for t in gpt_accumulated_topics + deepseek_accumulated_topics:
-            if t not in merged:
-                merged.append(t)
+        for t in gpt_summarized + deepseek_summarized:
+            clean_t = t.replace('{', '').replace('}', '')
+            if clean_t not in merged:
+                merged.append(clean_t)
         return merged[:max_topics]
 
 
@@ -640,7 +919,7 @@ def _classify_batch_internal(
     topics: List[str],
     config: AzureOpenAIConfig
 ) -> List[Dict[str, int]]:
-    """Internal batch classification using GPT 5.1"""
+    """Internal batch classification using GPT 5.2"""
     
     # Handle empty texts
     valid_texts = []
@@ -815,6 +1094,18 @@ def upload_file():
         session['uploaded_file'] = str(input_path)
         session['original_filename'] = filename
         session['sheet_names'] = sheet_names
+        session.permanent = True  # Make session permanent
+        
+        # Also store in backup file_store for reliability
+        file_store[session_id] = {
+            'uploaded_file': str(input_path),
+            'original_filename': filename,
+            'sheet_names': sheet_names,
+            'current_sheet': default_sheet,
+            'generated_topics': [],
+            'download_file_path': None,
+            'download_filename': None
+        }
         
         return jsonify({
             'success': True,
@@ -1049,16 +1340,114 @@ def generate_topics():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/prepare_download', methods=['POST'])
+def prepare_download():
+    """Prepare/regenerate the download file with current topics."""
+    try:
+        data = request.json
+        topics = data.get('topics', [])
+        answer_column = data.get('answer_column', '')
+        req_session_id = data.get('session_id')
+
+        if not topics:
+            return jsonify({'error': 'No topics provided'}), 400
+
+        # Get file info from session or backup store
+        file_info = get_file_info(req_session_id)
+        if not file_info or not file_info.get('uploaded_file'):
+            return jsonify({'error': 'No file uploaded. Please upload a file and generate topics again.'}), 400
+
+        filepath = Path(file_info['uploaded_file'])
+        current_sheet = file_info.get('current_sheet')
+        original_filename = file_info.get('original_filename', 'output')
+
+        if not filepath.exists():
+            return jsonify({'error': 'Uploaded file not found. Please upload the file again.'}), 400
+
+        # Load the data
+        df = load_data_for_processing(filepath, current_sheet)
+        answer_idx = column_letter_to_index(answer_column)
+
+        if answer_idx >= len(df.columns):
+            return jsonify({'error': 'Invalid answer column'}), 400
+
+        answer_column_name = df.columns[answer_idx]
+
+        # Remove any previously added topic columns
+        old_topics = file_info.get('generated_topics', [])
+        cols_to_keep = []
+        for col in df.columns:
+            if col not in old_topics:
+                cols_to_keep.append(col)
+        df = df[cols_to_keep]
+        
+        # Remove trailing empty rows
+        def is_row_empty(row):
+            for val in row:
+                if pd.notna(val):
+                    str_val = str(val).strip()
+                    if str_val and str_val.lower() not in ('nan', 'none', ''):
+                        return False
+            return True
+        
+        while len(df) > 0:
+            if is_row_empty(df.iloc[-1]):
+                df = df.iloc[:-1]
+            else:
+                break
+        
+        # Insert new topic columns right after the answer column
+        answer_col_position = df.columns.get_loc(answer_column_name) + 1
+        for i, topic in enumerate(topics):
+            if topic not in df.columns:
+                df.insert(answer_col_position + i, topic, '')
+        
+        # Create the CSV file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_name = Path(original_filename).stem
+        output_filename = f"{original_name}_with_topics_{timestamp}.csv"
+        
+        output_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.csv', mode='wb')
+        output_temp.write(b'\xef\xbb\xbf')  # UTF-8 BOM for Excel
+        csv_string = df.to_csv(index=False, encoding='utf-8')
+        output_temp.write(csv_string.encode('utf-8'))
+        output_temp.close()
+        
+        # Update both session and backup store
+        sid = req_session_id or session.get('session_id')
+        update_file_info(sid,
+            generated_topics=topics,
+            download_file_path=output_temp.name,
+            download_filename=output_filename
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'File prepared successfully',
+            'file_ready': {
+                'path': output_temp.name,
+                'filename': output_filename
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Prepare download error: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/download_file/<session_id>')
 def download_file_route(session_id):
     """Download file directly to Desktop."""
     try:
-        if session.get('session_id') != session_id:
-            return jsonify({'error': 'Invalid session'}), 400
+        # Get file info from session or backup store
+        file_info = get_file_info(session_id)
         
-        # Use pre-generated file if available
-        download_path = session.get('download_file_path')
-        download_filename = session.get('download_filename')
+        if not file_info:
+            return jsonify({'error': 'Session not found. Please upload a file and generate topics again.'}), 400
+        
+        download_path = file_info.get('download_file_path')
+        download_filename = file_info.get('download_filename')
         
         if download_path and Path(download_path).exists():
             # Save directly to Desktop
@@ -1083,24 +1472,29 @@ def download_file_route(session_id):
 
 @app.route('/store_topics', methods=['POST'])
 def store_topics():
-    """Store generated topics and file info in session."""
+    """Store generated topics and file info in session and backup store."""
     try:
         data = request.json
         topics = data.get('topics', [])
         file_path = data.get('file_path')
         file_name = data.get('file_name')
-        
+        req_session_id = data.get('session_id')
+
         if not topics:
             return jsonify({'error': 'No topics provided'}), 400
-        
-        session['generated_topics'] = topics
+
+        # Update both session and backup store
+        sid = req_session_id or session.get('session_id')
+        updates = {'generated_topics': topics}
         
         if file_path and file_name:
-            session['download_file_path'] = file_path
-            session['download_filename'] = file_name
+            updates['download_file_path'] = file_path
+            updates['download_filename'] = file_name
         
+        update_file_info(sid, **updates)
+
         return jsonify({'success': True, 'message': f'Stored {len(topics)} topics'})
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1169,7 +1563,7 @@ def status():
 
 @app.route('/chat_feedback', methods=['POST'])
 def chat_feedback():
-    """Process user feedback to refine topics using GPT 5.1."""
+    """Process user feedback to refine topics using GPT 5.2."""
     try:
         data = request.json
         user_message = data.get('message', '')
@@ -1350,19 +1744,22 @@ def save_updated_topics():
         data = request.json
         new_topics = data.get('topics', [])
         answer_column = data.get('answer_column', '')
+        req_session_id = data.get('session_id')
         
         if not new_topics:
             return jsonify({'error': 'No topics provided'}), 400
         
-        if 'uploaded_file' not in session:
-            return jsonify({'error': 'No file uploaded'}), 400
+        # Get file info from session or backup store
+        file_info = get_file_info(req_session_id)
+        if not file_info or not file_info.get('uploaded_file'):
+            return jsonify({'error': 'No file uploaded. Please upload a file and generate topics again.'}), 400
         
-        filepath = Path(session['uploaded_file'])
-        current_sheet = session.get('current_sheet')
-        original_filename = session.get('original_filename', 'output')
+        filepath = Path(file_info['uploaded_file'])
+        current_sheet = file_info.get('current_sheet')
+        original_filename = file_info.get('original_filename', 'output')
         
         if not filepath.exists():
-            return jsonify({'error': 'Uploaded file not found'}), 400
+            return jsonify({'error': 'Uploaded file not found. Please upload the file again.'}), 400
         
         # Load the data
         df = load_data_for_processing(filepath, current_sheet)
@@ -1374,7 +1771,7 @@ def save_updated_topics():
         answer_column_name = df.columns[answer_idx]
         
         # Remove any previously added topic columns FIRST (before checking for empty rows)
-        old_topics = session.get('generated_topics', [])
+        old_topics = file_info.get('generated_topics', [])
         cols_to_keep = []
         for col in df.columns:
             if col not in old_topics:
@@ -1414,10 +1811,13 @@ def save_updated_topics():
         output_temp.write(csv_string.encode('utf-8'))
         output_temp.close()
         
-        # Update session with new topics and file info
-        session['generated_topics'] = new_topics
-        session['download_file_path'] = output_temp.name
-        session['download_filename'] = output_filename
+        # Update both session and backup store
+        sid = req_session_id or session.get('session_id')
+        update_file_info(sid,
+            generated_topics=new_topics,
+            download_file_path=output_temp.name,
+            download_filename=output_filename
+        )
         
         return jsonify({
             'success': True,
